@@ -5,6 +5,7 @@
 
 #define WORD_SIZE 256    // Size of a single word
 #define INITIAL_SIZE 768 // Initial size of the line buffer (WORD_SIZE * 3)
+#define TABLE_SIZE 1024  // Size of the hash table
 
 unsigned int courier_frequency, courier_capacity, num_recipes = 0, max_recipes = 0, num_ingredients_total = 0, max_ingredients_total = 0, time = 0;
 
@@ -37,22 +38,107 @@ typedef struct
 
 Recipe *recipes = NULL; // Dynamic array of recipes
 
+// Node structure for the hash table
+typedef struct HashNode
+{
+    char *key;
+    unsigned int value;
+    struct HashNode *next;
+} HashNode;
+
+// Hash table structure
+typedef struct
+{
+    HashNode **table;
+} HashTable;
+
+// Function to create a new hash table
+HashTable *create_table()
+{
+    HashTable *new_table = malloc(sizeof(HashTable));
+    new_table->table = malloc(TABLE_SIZE * sizeof(HashNode *));
+    for (int i = 0; i < TABLE_SIZE; i++)
+    {
+        new_table->table[i] = NULL;
+    }
+    return new_table;
+}
+
+// Hash function
+unsigned int hash_function(char *key)
+{
+    unsigned long int value = 0;
+    unsigned int i = 0;
+    unsigned int key_len = strlen(key);
+
+    for (; i < key_len; i++)
+    {
+        value = value * 37 + key[i];
+    }
+    value = value % TABLE_SIZE;
+
+    return value;
+}
+
+// Function to insert into the hash table
+void hash_table_insert(HashTable *hashtable, char *key, unsigned int value)
+{
+    unsigned int index = hash_function(key);
+    HashNode *new_node = malloc(sizeof(HashNode));
+    new_node->key = strdup(key);
+    new_node->value = value;
+    new_node->next = hashtable->table[index];
+    hashtable->table[index] = new_node;
+}
+
+// Function to find an index in the hash table
+int hash_table_find(HashTable *hashtable, char *key)
+{
+    unsigned int index = hash_function(key);
+    HashNode *node = hashtable->table[index];
+    while (node != NULL)
+    {
+        if (strcmp(node->key, key) == 0)
+        {
+            return node->value;
+        }
+        node = node->next;
+    }
+    return -1;
+}
+
+// Function to free the hash table
+void free_table(HashTable *hashtable)
+{
+    for (int i = 0; i < TABLE_SIZE; i++)
+    {
+        HashNode *node = hashtable->table[i];
+        while (node != NULL)
+        {
+            HashNode *temp = node;
+            node = node->next;
+            free(temp->key);
+            free(temp);
+        }
+    }
+    free(hashtable->table);
+    free(hashtable);
+}
+
+// Hash tables for ingredients and recipes
+HashTable *ingredient_table;
+HashTable *recipe_table;
+
 // Function to find the index of a recipe by name
 unsigned int find_recipe_index(char *name)
 {
-    for (unsigned int i = 0; i < num_recipes; i++)
-        if (strcmp(recipes[i].name, name) == 0)
-            return i;
-    return -1;
+    return hash_table_find(recipe_table, name);
 }
 
 // Function to find the index of an ingredient by name
 unsigned int find_ingredient_index(char *name)
 {
-    for (unsigned int i = 0; i < num_ingredients_total; i++)
-        if (strcmp(ingredients_total[i].name, name) == 0)
-            return i;
-    return -1;
+    return hash_table_find(ingredient_table, name);
 }
 
 // Function to initialize a new recipe
@@ -63,28 +149,47 @@ void init_recipe(Recipe *recipe, char *name, unsigned int num_ingredients)
     recipe->num_ingredients = num_ingredients;
 }
 
-// Function to compare batches by expiration time for sorting
-int compare_batches(const void *a, const void *b)
+// Function to compare batches by expiration time using binary insertion
+unsigned int find_insert_index_binary(Batch *batches, unsigned int num_batches, unsigned int expiration_time)
 {
-    Batch *batchA = (Batch *)a;
-    Batch *batchB = (Batch *)b;
-    return (batchA->expiration_time - batchB->expiration_time);
-}
+    unsigned int low = 0;
+    unsigned int high = num_batches;
 
-// Function to add a batch to an ingredient
+    while (low < high)
+    {
+        unsigned int mid = low + (high - low) / 2;
+        if (batches[mid].expiration_time < expiration_time)
+        {
+            low = mid + 1;
+        }
+        else
+        {
+            high = mid;
+        }
+    }
+
+    return low;
+}
+// Function to add a batch to an ingredient using binary insertion
 void add_batch(Ingredient *ingredient, unsigned int quantity, unsigned int expiration_time)
 {
+    // Find the insertion index using binary search
+    unsigned int insert_index = find_insert_index_binary(ingredient->batches, ingredient->num_batches, expiration_time);
+
     // Resize the batches array if needed
     if (ingredient->num_batches >= ingredient->max_batches)
     {
         ingredient->max_batches++;
         ingredient->batches = realloc(ingredient->batches, ingredient->max_batches * sizeof(Batch));
     }
+
+    // Shift batches to make space for the new batch
+    memmove(&ingredient->batches[insert_index + 1], &ingredient->batches[insert_index], (ingredient->num_batches - insert_index) * sizeof(Batch));
+
     // Add the new batch
-    Batch new_batch = {quantity, expiration_time};
-    ingredient->batches[ingredient->num_batches++] = new_batch;
-    // Sort batches by expiration time using QuickSort
-    qsort(ingredient->batches, ingredient->num_batches, sizeof(Batch), compare_batches);
+    ingredient->batches[insert_index].quantity = quantity;
+    ingredient->batches[insert_index].expiration_time = expiration_time;
+    ingredient->num_batches++;
 }
 
 // Function to add an ingredient with a batch
@@ -110,8 +215,9 @@ void add_ingredient(char *name, unsigned int quantity, unsigned int expiration_t
         ingredients_total[num_ingredients_total].total_quantity = quantity;
         ingredients_total[num_ingredients_total].batches = malloc(sizeof(Batch));
         ingredients_total[num_ingredients_total].num_batches = 0;
-        ingredients_total[num_ingredients_total].max_batches = 1;
+        ingredients_total[num_ingredients_total].max_batches = 1; // TODO: check
         add_batch(&ingredients_total[num_ingredients_total], quantity, expiration_time);
+        hash_table_insert(ingredient_table, name, num_ingredients_total);
         num_ingredients_total++;
     }
 }
@@ -146,8 +252,13 @@ void aggiungi_ricetta(char *name, char **ingredients, unsigned int *quantities, 
     // Initialize the new recipe
     init_recipe(&recipes[num_recipes], name, num_ingredients);
     for (unsigned int i = 0; i < num_ingredients; i++)
+    {
+        add_ingredient(ingredients[i], quantities[i], time); // Add ingredient to the global list
         add_ingredient_to_recipe(&recipes[num_recipes].ingredients[i], ingredients[i], quantities[i]);
+    }
 
+    // Insert the recipe into the hash table
+    hash_table_insert(recipe_table, name, num_recipes);
     num_recipes++;
     printf("aggiunta\n");
 }
@@ -197,6 +308,9 @@ void manage_aggiungi_ricetta(char *line)
 
 int main()
 {
+    ingredient_table = create_table();
+    recipe_table = create_table();
+
     unsigned int current_character;
     // Read the two numbers from the first line
     scanf("%u %u", &courier_frequency, &courier_capacity);
@@ -251,6 +365,9 @@ int main()
         // Free the memory allocated for the current line
         free(line);
     }
+
+    free_table(ingredient_table);
+    free_table(recipe_table);
 
     return 0;
 }
