@@ -5,8 +5,8 @@
 
 #define WORD_SIZE 256    // Size of a single word
 #define INITIAL_SIZE 768 // Initial size of the line buffer (WORD_SIZE * 3)
-#define TABLE_SIZE 1024  // Size of the hash table
 
+// Global variables
 unsigned int courier_frequency, courier_capacity, num_recipes = 0, max_recipes = 0, num_ingredients_total = 0, max_ingredients_total = 0, time = 0;
 
 // Structure to represent a batch of an ingredient
@@ -38,100 +38,7 @@ typedef struct
 
 Recipe *recipes = NULL; // Dynamic array of recipes
 
-// Node structure for the hash table
-typedef struct HashNode
-{
-    char *key;
-    unsigned int value;
-    struct HashNode *next;
-} HashNode;
-
-// Hash table structure
-typedef struct
-{
-    HashNode **table;
-} HashTable;
-
-//  O(1) Function to create a new hash table
-HashTable *create_table()
-{
-    HashTable *new_table = malloc(sizeof(HashTable));
-    new_table->table = malloc(TABLE_SIZE * sizeof(HashNode *));
-    for (int i = 0; i < TABLE_SIZE; i++)
-        new_table->table[i] = NULL;
-    return new_table;
-}
-
-// O(n) Hash function
-unsigned int hash_function(char *key)
-{
-    unsigned long int value = 0;
-    unsigned int i = 0;
-    unsigned int key_len = strlen(key);
-
-    for (; i < key_len; i++)
-        value = value * 37 + key[i];
-    value = value % TABLE_SIZE;
-
-    return value;
-}
-
-//  O(n) Function to insert into the hash table
-void hash_table_insert(HashTable *hashtable, char *key, unsigned int value)
-{
-    unsigned int index = hash_function(key);
-    HashNode *new_node = malloc(sizeof(HashNode));
-    new_node->key = strdup(key);
-    new_node->value = value;
-    new_node->next = hashtable->table[index];
-    hashtable->table[index] = new_node;
-}
-
-// O(n) Function to find an index in the hash table
-int hash_table_find(HashTable *hashtable, char *key)
-{
-    unsigned int index = hash_function(key);
-    HashNode *node = hashtable->table[index];
-    while (node != NULL)
-    {
-        if (strcmp(node->key, key) == 0)
-            return node->value;
-        node = node->next;
-    }
-    return -1;
-}
-
-// Function to free the hash table
-void free_table(HashTable *hashtable)
-{
-    for (int i = 0; i < TABLE_SIZE; i++)
-    {
-        HashNode *node = hashtable->table[i];
-        while (node != NULL)
-        {
-            HashNode *temp = node;
-            node = node->next;
-            free(temp->key);
-            free(temp);
-        }
-    }
-    free(hashtable->table);
-    free(hashtable);
-}
-
-// Hash tables for ingredients and recipes
-HashTable *ingredient_table;
-HashTable *recipe_table;
-
-//  O(num_ingredients) Function to initialize a new recipe
-void init_recipe(Recipe *recipe, char *name, unsigned int num_ingredients)
-{
-    strcpy(recipe->name, name);
-    recipe->ingredients = malloc(num_ingredients * sizeof(Ingredient));
-    recipe->num_ingredients = num_ingredients;
-}
-
-// O(log n) Function to compare batches by expiration time using binary insertion
+// O(log n) time, O(1) space
 unsigned int find_insert_index_binary(Batch *batches, unsigned int num_batches, unsigned int expiration_time)
 {
     unsigned int low = 0;
@@ -148,7 +55,8 @@ unsigned int find_insert_index_binary(Batch *batches, unsigned int num_batches, 
 
     return low;
 }
-// O(n) Function to add a batch to an ingredient using binary insertion
+
+// O(n) time, O(1) space
 void add_batch(Ingredient *ingredient, unsigned int quantity, unsigned int expiration_time)
 {
     // Find the insertion index using binary search
@@ -170,15 +78,27 @@ void add_batch(Ingredient *ingredient, unsigned int quantity, unsigned int expir
     ingredient->num_batches++;
 }
 
-// O(n) Function to add an ingredient with a batch
-void add_ingredient(char *name, unsigned int quantity, unsigned int expiration_time) // TODO: Check
+// O(n) time, O(1) space
+void add_ingredient(char *name, unsigned int quantity, int expiration_time)
 {
-    int index = hash_table_find(ingredient_table, name);
+    int index = -1;
+    for (unsigned int i = 0; i < num_ingredients_total; i++)
+    {
+        if (strcmp(ingredients_total[i].name, name) == 0)
+        {
+            index = i;
+            break;
+        }
+    }
+
     if (index != -1)
     {
-        // If the ingredient exists, update the total quantity and add the new batch
+        // If the ingredient exists, update the total quantity and add the new batch if expiration_time is specified
         ingredients_total[index].total_quantity += quantity;
-        add_batch(&ingredients_total[index], quantity, expiration_time);
+        if (expiration_time != -1)
+        {
+            add_batch(&ingredients_total[index], quantity, expiration_time);
+        }
     }
     else
     {
@@ -188,19 +108,29 @@ void add_ingredient(char *name, unsigned int quantity, unsigned int expiration_t
             max_ingredients_total++;
             ingredients_total = realloc(ingredients_total, max_ingredients_total * sizeof(Ingredient));
         }
-        // Add the new ingredient and the first batch
+        // Add the new ingredient and the first batch if expiration_time is specified
         strcpy(ingredients_total[num_ingredients_total].name, name);
         ingredients_total[num_ingredients_total].total_quantity = quantity;
         ingredients_total[num_ingredients_total].batches = malloc(sizeof(Batch));
         ingredients_total[num_ingredients_total].num_batches = 0;
         ingredients_total[num_ingredients_total].max_batches = 1;
-        add_batch(&ingredients_total[num_ingredients_total], quantity, expiration_time);
-        hash_table_insert(ingredient_table, name, num_ingredients_total);
+        if (expiration_time != -1)
+        {
+            add_batch(&ingredients_total[num_ingredients_total], quantity, expiration_time);
+        }
         num_ingredients_total++;
     }
 }
 
-// O(n), n = name length Function to add an ingredient to a recipe (without batches)
+// O(1) time, O(1) space
+void init_recipe(Recipe *recipe, char *name, unsigned int num_ingredients)
+{
+    strcpy(recipe->name, name);
+    recipe->ingredients = malloc(num_ingredients * sizeof(Ingredient));
+    recipe->num_ingredients = num_ingredients;
+}
+
+// O(n) time, O(1) space
 void add_ingredient_to_recipe(Ingredient *recipe_ingredient, char *name, unsigned int quantity)
 {
     strcpy(recipe_ingredient->name, name);
@@ -210,14 +140,17 @@ void add_ingredient_to_recipe(Ingredient *recipe_ingredient, char *name, unsigne
     recipe_ingredient->max_batches = 0;
 }
 
-// O(n + num_ingredients) Function to add a new recipe
-void aggiungi_ricetta(char *name, char **ingredients, unsigned int *quantities, unsigned int num_ingredients, unsigned int max_ingredients)
+// O(n) time, O(n) space (where n is the number of ingredients in the recipe)
+void aggiungi_ricetta(char *name, char **ingredients, unsigned int *quantities, unsigned int num_ingredients)
 {
     // Check if the recipe already exists
-    if (hash_table_find(recipe_table, name) != -1)
+    for (unsigned int i = 0; i < num_recipes; i++)
     {
-        printf("ignorato\n");
-        return;
+        if (strcmp(recipes[i].name, name) == 0)
+        {
+            printf("ignorato\n");
+            return;
+        }
     }
 
     // Resize the recipes array if needed
@@ -231,17 +164,15 @@ void aggiungi_ricetta(char *name, char **ingredients, unsigned int *quantities, 
     init_recipe(&recipes[num_recipes], name, num_ingredients);
     for (unsigned int i = 0; i < num_ingredients; i++)
     {
-        add_ingredient(ingredients[i], quantities[i], time); // Add ingredient to the global list
+        add_ingredient(ingredients[i], quantities[i], -1); // Add ingredient to the global list without specifying expiration time
         add_ingredient_to_recipe(&recipes[num_recipes].ingredients[i], ingredients[i], quantities[i]);
     }
 
-    // Insert the recipe into the hash table
-    hash_table_insert(recipe_table, name, num_recipes);
     num_recipes++;
     printf("aggiunta\n");
 }
 
-//  O(num_ingredients) Function to manage the "aggiungi_ricetta" command
+// O(n) time, O(n) space (where n is the length of the input line)
 void manage_aggiungi_ricetta(char *line)
 {
     // Extract the recipe name from the input line
@@ -273,7 +204,7 @@ void manage_aggiungi_ricetta(char *line)
     }
 
     // Call the aggiungi_ricetta function
-    aggiungi_ricetta(name, ingredients, quantities, num_ingredients, max_ingredients);
+    aggiungi_ricetta(name, ingredients, quantities, num_ingredients);
 
     // Free the memory allocated for the ingredients
     for (unsigned int i = 0; i < num_ingredients; i++)
@@ -281,41 +212,47 @@ void manage_aggiungi_ricetta(char *line)
     free(ingredients);
     free(quantities);
 }
-// O(n) Function to print the contents of the ingredient table
-void print_ingredient_table(HashTable *hashtable)
+
+// O(n) time, O(1) space
+void print_ingredient_table()
 {
     printf("Ingredient Table:\n");
-    for (int i = 0; i < TABLE_SIZE; i++)
+    printf("Numero ricette: %u", num_recipes);
+    for (unsigned int i = 0; i < num_ingredients_total; i++)
     {
-        HashNode *node = hashtable->table[i];
-        while (node != NULL)
+        printf("Ingredient: %s, Total Quantity: %u", ingredients_total[i].name, ingredients_total[i].total_quantity);
+        if (ingredients_total[i].num_batches > 0)
         {
-            printf("Key: %s, Value: %u\n", node->key, node->value);
-            node = node->next;
+            printf(", Batches:\n");
+            for (unsigned int j = 0; j < ingredients_total[i].num_batches; j++)
+            {
+                printf("  Quantity: %u, Expiration Time: %u\n", ingredients_total[i].batches[j].quantity, ingredients_total[i].batches[j].expiration_time);
+            }
+        }
+        else
+        {
+            printf(", No batches\n");
         }
     }
 }
-
-// O(n) Function to print the contents of the recipe table
-void print_recipe_table(HashTable *hashtable)
+// O(n) time, O(1) space
+void print_recipe_table()
 {
     printf("Recipe Table:\n");
-    for (int i = 0; i < TABLE_SIZE; i++)
+    for (unsigned int i = 0; i < num_recipes; i++)
     {
-        HashNode *node = hashtable->table[i];
-        while (node != NULL)
+        printf("Recipe: %s, Ingredients:\n", recipes[i].name);
+        for (unsigned int j = 0; j < recipes[i].num_ingredients; j++)
         {
-            printf("Key: %s, Value: %u\n", node->key, node->value);
-            node = node->next;
+            printf("  Ingredient: %s, Quantity: %u\n", recipes[i].ingredients[j].name, recipes[i].ingredients[j].total_quantity);
         }
     }
 }
+
 int main()
 {
-    ingredient_table = create_table();
-    recipe_table = create_table();
-
     unsigned int current_character;
+
     // Read the two numbers from the first line
     scanf("%u %u", &courier_frequency, &courier_capacity);
     // Read characters until EOF
@@ -323,7 +260,7 @@ int main()
     {
         // Check if the current character is a digit
         if (isdigit(current_character))
-            continue; // TODO: Verify, probably to delete
+            continue;
 
         unsigned int max_size = INITIAL_SIZE;
         // Memory allocation for the current line
@@ -369,15 +306,26 @@ int main()
         // Free the memory allocated for the current line
         free(line);
     }
+
     // Print the contents of the ingredient table
     add_ingredient("tuorlo", 100, 150);
-    print_ingredient_table(ingredient_table);
+    print_ingredient_table();
 
     // Print the contents of the recipe table
-    print_recipe_table(recipe_table);
+    print_recipe_table();
 
-    free_table(ingredient_table);
-    free_table(recipe_table);
+    // Free the dynamic memory allocations
+    for (unsigned int i = 0; i < num_ingredients_total; i++)
+    {
+        free(ingredients_total[i].batches);
+    }
+    free(ingredients_total);
+
+    for (unsigned int i = 0; i < num_recipes; i++)
+    {
+        free(recipes[i].ingredients);
+    }
+    free(recipes);
 
     return 0;
 }
