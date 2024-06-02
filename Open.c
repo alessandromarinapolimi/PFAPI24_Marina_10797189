@@ -58,9 +58,7 @@ HashTable *create_table()
     HashTable *new_table = malloc(sizeof(HashTable));
     new_table->table = malloc(TABLE_SIZE * sizeof(HashNode *));
     for (int i = 0; i < TABLE_SIZE; i++)
-    {
         new_table->table[i] = NULL;
-    }
     return new_table;
 }
 
@@ -72,9 +70,7 @@ unsigned int hash_function(char *key)
     unsigned int key_len = strlen(key);
 
     for (; i < key_len; i++)
-    {
         value = value * 37 + key[i];
-    }
     value = value % TABLE_SIZE;
 
     return value;
@@ -99,9 +95,7 @@ int hash_table_find(HashTable *hashtable, char *key)
     while (node != NULL)
     {
         if (strcmp(node->key, key) == 0)
-        {
             return node->value;
-        }
         node = node->next;
     }
     return -1;
@@ -129,18 +123,6 @@ void free_table(HashTable *hashtable)
 HashTable *ingredient_table;
 HashTable *recipe_table;
 
-// Function to find the index of a recipe by name
-unsigned int find_recipe_index(char *name)
-{
-    return hash_table_find(recipe_table, name);
-}
-
-// Function to find the index of an ingredient by name
-unsigned int find_ingredient_index(char *name)
-{
-    return hash_table_find(ingredient_table, name);
-}
-
 // Function to initialize a new recipe
 void init_recipe(Recipe *recipe, char *name, unsigned int num_ingredients)
 {
@@ -159,13 +141,9 @@ unsigned int find_insert_index_binary(Batch *batches, unsigned int num_batches, 
     {
         unsigned int mid = low + (high - low) / 2;
         if (batches[mid].expiration_time < expiration_time)
-        {
             low = mid + 1;
-        }
         else
-        {
             high = mid;
-        }
     }
 
     return low;
@@ -193,9 +171,9 @@ void add_batch(Ingredient *ingredient, unsigned int quantity, unsigned int expir
 }
 
 // Function to add an ingredient with a batch
-void add_ingredient(char *name, unsigned int quantity, unsigned int expiration_time)
+void add_ingredient(char *name, unsigned int quantity, unsigned int expiration_time) // TODO: Check
 {
-    int index = find_ingredient_index(name);
+    int index = hash_table_find(ingredient_table, name);
     if (index != -1)
     {
         // If the ingredient exists, update the total quantity and add the new batch
@@ -215,7 +193,7 @@ void add_ingredient(char *name, unsigned int quantity, unsigned int expiration_t
         ingredients_total[num_ingredients_total].total_quantity = quantity;
         ingredients_total[num_ingredients_total].batches = malloc(sizeof(Batch));
         ingredients_total[num_ingredients_total].num_batches = 0;
-        ingredients_total[num_ingredients_total].max_batches = 1; // TODO: check
+        ingredients_total[num_ingredients_total].max_batches = 1; 
         add_batch(&ingredients_total[num_ingredients_total], quantity, expiration_time);
         hash_table_insert(ingredient_table, name, num_ingredients_total);
         num_ingredients_total++;
@@ -236,7 +214,7 @@ void add_ingredient_to_recipe(Ingredient *recipe_ingredient, char *name, unsigne
 void aggiungi_ricetta(char *name, char **ingredients, unsigned int *quantities, unsigned int num_ingredients, unsigned int max_ingredients)
 {
     // Check if the recipe already exists
-    if (find_recipe_index(name) != -1)
+    if (hash_table_find(recipe_table, name) != -1)
     {
         printf("ignorato\n");
         return;
@@ -299,13 +277,33 @@ void manage_aggiungi_ricetta(char *line)
 
     // Free the memory allocated for the ingredients
     for (unsigned int i = 0; i < num_ingredients; i++)
-    {
         free(ingredients[i]);
-    }
     free(ingredients);
     free(quantities);
 }
+// Function to print the contents of the ingredient table
+void print_ingredient_table(HashTable *hashtable) {
+    printf("Ingredient Table:\n");
+    for (int i = 0; i < TABLE_SIZE; i++) {
+        HashNode *node = hashtable->table[i];
+        while (node != NULL) {
+            printf("Key: %s, Value: %u\n", node->key, node->value);
+            node = node->next;
+        }
+    }
+}
 
+// Function to print the contents of the recipe table
+void print_recipe_table(HashTable *hashtable) {
+    printf("Recipe Table:\n");
+    for (int i = 0; i < TABLE_SIZE; i++) {
+        HashNode *node = hashtable->table[i];
+        while (node != NULL) {
+            printf("Key: %s, Value: %u\n", node->key, node->value);
+            node = node->next;
+        }
+    }
+}
 int main()
 {
     ingredient_table = create_table();
@@ -365,6 +363,13 @@ int main()
         // Free the memory allocated for the current line
         free(line);
     }
+    // Print the contents of the ingredient table
+    add_ingredient("tuorlo", 100, 150);
+    print_ingredient_table(ingredient_table);
+
+    // Print the contents of the recipe table
+    print_recipe_table(recipe_table);
+
 
     free_table(ingredient_table);
     free_table(recipe_table);
