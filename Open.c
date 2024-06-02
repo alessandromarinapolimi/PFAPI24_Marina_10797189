@@ -217,7 +217,7 @@ void manage_aggiungi_ricetta(char *line)
 void print_ingredient_table()
 {
     printf("Ingredient Table:\n");
-    printf("Numero ricette: %u", num_recipes);
+    printf("Numero ingredienti: %u\n", num_ingredients_total);
     for (unsigned int i = 0; i < num_ingredients_total; i++)
     {
         printf("Ingredient: %s, Total Quantity: %u", ingredients_total[i].name, ingredients_total[i].total_quantity);
@@ -259,7 +259,7 @@ int main()
     while ((current_character = getchar_unlocked()) != EOF)
     {
         // Check if the current character is a digit
-        if (isdigit(current_character))
+        if (isdigit(current_character)) // TODO: check, maybe delete useless condition
             continue;
 
         unsigned int max_size = INITIAL_SIZE;
@@ -284,7 +284,7 @@ int main()
         line[current_index] = '\0'; // Terminate the string with '\0'
 
         // Process the command based on the third character of the line
-        if (current_index >= 3)
+        if (current_index >= 3) // TODO: check, maybe delete useless condition
             switch (line[2])
             {
             case 'g': // Command to add a recipe
@@ -316,15 +316,10 @@ int main()
 
     // Free the dynamic memory allocations
     for (unsigned int i = 0; i < num_ingredients_total; i++)
-    {
         free(ingredients_total[i].batches);
-    }
     free(ingredients_total);
-
     for (unsigned int i = 0; i < num_recipes; i++)
-    {
         free(recipes[i].ingredients);
-    }
     free(recipes);
 
     return 0;
