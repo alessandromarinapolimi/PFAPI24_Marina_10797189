@@ -198,7 +198,7 @@ void manage_aggiungi_ricetta(char *line)
     unsigned int num_ingredients = 0;
 
     // Parse the rest of the string to extract ingredient names and quantities
-    while ((token = strtok(NULL, " ")) != NULL)
+    while (token != NULL)
     {
         // Check if we have enough space in the arrays, if not, resize them
         if (num_ingredients >= max_ingredients)
@@ -208,24 +208,23 @@ void manage_aggiungi_ricetta(char *line)
             quantities = realloc(quantities, max_ingredients * sizeof(unsigned int));
         }
 
-        // Extract ingredient name and quantity
+        // Extract ingredient name
         char *ingredient_name = token;
         token = strtok(NULL, " ");
+        if (token == NULL)
+            break;
+
+        // Extract quantity
         unsigned int quantity = atoi(token);
 
         // Add the ingredient to the arrays
         ingredients[num_ingredients] = ingredient_name;
         quantities[num_ingredients] = quantity;
         num_ingredients++;
-    }
 
-    // printf("Chiamata aggiungi_ricetta con i seguenti parametri:\n");
-    // printf("Nome ricetta: %s\n", name);
-    // printf("Ingredienti:\n");
-    // for (unsigned int i = 0; i < num_ingredients; i++)
-    // {
-    //     printf("Ingrediente %u: %s, Quantità: %u\n", i + 1, ingredients[i], quantities[i]);
-    // }
+        // Move to the next token
+        token = strtok(NULL, " ");
+    }
 
     // Call the aggiungi_ricetta function
     aggiungi_ricetta(name, ingredients, quantities, num_ingredients);
@@ -235,6 +234,72 @@ void manage_aggiungi_ricetta(char *line)
     free(quantities);
 }
 
+// O(n) time, O(1) space (where n is the number of ingredients in the replenishment)
+void rifornimento(char **ingredients, unsigned int *quantities, unsigned int *expiration_times, unsigned int num_ingredients)
+{
+    for (unsigned int i = 0; i < num_ingredients; i++)
+    {
+        add_ingredient(ingredients[i], quantities[i], expiration_times[i]);
+    }
+}
+// O(n) time, O(n) space (where n is the length of the input line)
+void manage_rifornimento(char *line)
+{
+    // Skip the command "rifornimento"
+    char *token = strtok(line + strlen("rifornimento") + 1, " ");
+
+    // Initialize variables to store ingredient information
+    char **ingredients = NULL;
+    unsigned int *quantities = NULL;
+    unsigned int *expiration_times = NULL;
+    unsigned int max_ingredients = 0;
+    unsigned int num_ingredients = 0;
+
+    // Parse the rest of the string to extract ingredient names, quantities, and expiration times
+    while (token != NULL)
+    {
+        // Check if we have enough space in the arrays, if not, resize them
+        if (num_ingredients >= max_ingredients)
+        {
+            max_ingredients += 1;
+            ingredients = realloc(ingredients, max_ingredients * sizeof(char *));
+            quantities = realloc(quantities, max_ingredients * sizeof(unsigned int));
+            expiration_times = realloc(expiration_times, max_ingredients * sizeof(unsigned int));
+        }
+
+        // Extract ingredient name
+        char *ingredient_name = token;
+        token = strtok(NULL, " ");
+        if (token == NULL)
+            break;
+
+        // Extract quantity
+        unsigned int quantity = atoi(token);
+        token = strtok(NULL, " ");
+        if (token == NULL)
+            break;
+
+        // Extract expiration time
+        unsigned int expiration_time = atoi(token);
+
+        // Add the ingredient to the arrays
+        ingredients[num_ingredients] = ingredient_name;
+        quantities[num_ingredients] = quantity;
+        expiration_times[num_ingredients] = expiration_time;
+        num_ingredients++;
+
+        // Move to the next token
+        token = strtok(NULL, " ");
+    }
+
+    // Call the rifornimento function
+    rifornimento(ingredients, quantities, expiration_times, num_ingredients);
+
+    // Free the memory allocated for the ingredients
+    free(ingredients);
+    free(quantities);
+    free(expiration_times);
+}
 // O(n) time, O(1) space
 void print_ingredient_table()
 {
@@ -337,7 +402,7 @@ int main()
                 // rimuovi_ricetta
                 break;
             case 'f': // Command for restocking (to be implemented)
-                // rifornimento
+                manage_rifornimento(line);
                 break;
             case 'd': // Command for an order (to be implemented)
                 // ordine
@@ -354,16 +419,13 @@ int main()
     add_ingredient("tuorlo", 100, 150);
     add_ingredient("tuorlo", 100, 150);
     add_ingredient("tuorlo", 100, 100);
-    // print_ingredient_table();
-    // print_recipe_table();
+    print_ingredient_table();
+ //   print_recipe_table();
 
-    // Free allocated memory (example for illustration, you should free all allocated memory properly in real code)
+    // Free allocated memory
     for (unsigned int i = 0; i < num_ingredients_total; i++)
-    {
         free(ingredients_total[i].batches);
-    }
     free(ingredients_total);
-
     for (unsigned int i = 0; i < num_recipes; i++)
     {
         free(recipes[i].ingredient_quantities);
