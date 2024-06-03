@@ -494,7 +494,7 @@ aggiungi_ricetta torta_di_mele mele 6 uova 1 farina 350 zucchero 300
 aggiungi_ricetta torta_di_mele mele 7 uova 2 farina 400 zucchero 350
 aggiungi_ricetta torta_di_mele mele 8 uova 3 farina 450 zucchero 400
 aggiungi_ricetta torta_di_mele mele 9 uova 4 farina 500 zucchero 450
-aggiungi_ricetta torta_di_mele mele 10 uova 5 farina 550 zucchero 500
+aggiungi_ricetta torta_di_messsssssssssssssle tuorlo 10 uova 5 farina 550 zucchero 500
 aggiungi_ricetta torta_di_mele mele 11 uova 6 farina 600 zucchero 550
 aggiungi_ricetta torta_di_mele mele 12 uova 7 farina 650 zucchero 600
 aggiungi_ricetta torta_di_mele mele 13 uova 8 farina 700 zucchero 650
