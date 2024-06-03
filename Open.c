@@ -99,7 +99,7 @@ void add_ingredient(char *name, unsigned int quantity, int expiration_time)
         ingredients_total[index].total_quantity += quantity;
         if (expiration_time != -1)
         {
-            add_batch(&ingredients_total[index], quantity, expiration_time);
+            add_batch(&ingredients_total[index], quantity, expiration_time + time);
         }
     }
     else
@@ -337,6 +337,8 @@ int main()
 
     // Print the contents of the ingredient table
     add_ingredient("tuorlo", 100, 150);
+    add_ingredient("tuorlo", 100, 150);
+    add_ingredient("tuorlo", 100, 100);
     print_ingredient_table();
 
     // Print the contents of the recipe table
