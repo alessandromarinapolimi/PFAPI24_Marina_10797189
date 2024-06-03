@@ -32,7 +32,6 @@ Ingredient *ingredients_total = NULL; // Dynamic array of total ingredients
 typedef struct
 {
     char name[WORD_SIZE];
-    char **ingredient_names;
     unsigned int **ingredient_quantities;
     unsigned int *needed_quantities;
     unsigned int num_ingredients;
@@ -128,16 +127,14 @@ void add_ingredient(char *name, unsigned int quantity, int expiration_time)
 void init_recipe(Recipe *recipe, char *name, unsigned int num_ingredients)
 {
     strcpy(recipe->name, name);
-    recipe->ingredient_names = malloc(num_ingredients * sizeof(char *));
     recipe->ingredient_quantities = malloc(num_ingredients * sizeof(unsigned int *));
     recipe->needed_quantities = malloc(num_ingredients * sizeof(unsigned int));
     recipe->num_ingredients = num_ingredients;
 }
 
 // O(n) time, O(1) space
-void add_ingredient_to_recipe(Recipe *recipe, unsigned int ingredient_index, char *name, unsigned int *quantity, unsigned int needed_quantity)
+void add_ingredient_to_recipe(Recipe *recipe, unsigned int ingredient_index, unsigned int *quantity, unsigned int needed_quantity)
 {
-    recipe->ingredient_names[ingredient_index] = name;
     recipe->ingredient_quantities[ingredient_index] = quantity;
     recipe->needed_quantities[ingredient_index] = needed_quantity;
 }
@@ -168,7 +165,7 @@ void aggiungi_ricetta(char *name, char **ingredients, unsigned int *quantities, 
     {
         // Add ingredient to the global list without specifying expiration time
         add_ingredient(ingredients[i], 0, -1);
-        
+
         // Find the ingredient in the global list
         unsigned int j;
         for (j = 0; j < num_ingredients_total; j++)
@@ -178,8 +175,8 @@ void aggiungi_ricetta(char *name, char **ingredients, unsigned int *quantities, 
                 break;
             }
         }
-        
-        add_ingredient_to_recipe(&recipes[num_recipes], i, ingredients_total[j].name, &ingredients_total[j].total_quantity, quantities[i]);
+
+        add_ingredient_to_recipe(&recipes[num_recipes], i, &ingredients_total[j].total_quantity, quantities[i]);
     }
 
     num_recipes++;
@@ -222,23 +219,21 @@ void manage_aggiungi_ricetta(char *line)
         num_ingredients++;
     }
 
+    // printf("Chiamata aggiungi_ricetta con i seguenti parametri:\n");
+    // printf("Nome ricetta: %s\n", name);
+    // printf("Ingredienti:\n");
+    // for (unsigned int i = 0; i < num_ingredients; i++)
+    // {
+    //     printf("Ingrediente %u: %s, Quantità: %u\n", i + 1, ingredients[i], quantities[i]);
+    // }
+
     // Call the aggiungi_ricetta function
-    printf("Chiamata aggiungi_ricetta con i seguenti parametri:\n");
-    printf("Nome ricetta: %s\n", name);
-    printf("Ingredienti:\n");
-    for (unsigned int i = 0; i < num_ingredients; i++)
-    {
-        printf("Ingrediente %u: %s, Quantità: %u\n", i + 1, ingredients[i], quantities[i]);
-    }
     aggiungi_ricetta(name, ingredients, quantities, num_ingredients);
 
     // Free the memory allocated for the ingredients
     free(ingredients);
     free(quantities);
 }
-
-
-
 
 // O(n) time, O(1) space
 void print_ingredient_table()
@@ -263,20 +258,40 @@ void print_ingredient_table()
     }
 }
 
-// O(n) time, O(1) space
+// O(n) time, O(n) space
 void print_recipe_table()
 {
     printf("Recipe Table:\n");
+    printf("Numero ricette: %u\n", num_recipes);
     for (unsigned int i = 0; i < num_recipes; i++)
     {
-        printf("Recipe: %s, Ingredients:\n", recipes[i].name);
+        printf("Ricetta: %s, Numero ingredienti: %u\n", recipes[i].name, recipes[i].num_ingredients);
         for (unsigned int j = 0; j < recipes[i].num_ingredients; j++)
         {
-            printf("  Ingredient: %s, Quantity: %u\n", recipes[i].ingredient_names[j], recipes[i].needed_quantities[j]);
+            // Trova il nome dell'ingrediente utilizzando il puntatore ingredient_quantities[j]
+            char *ingredient_name = NULL;
+            for (unsigned int k = 0; k < num_ingredients_total; k++)
+            {
+                if (recipes[i].ingredient_quantities[j] == &ingredients_total[k].total_quantity)
+                {
+                    ingredient_name = ingredients_total[k].name;
+                    break;
+                }
+            }
+
+            if (ingredient_name)
+            {
+                printf("  Ingrediente: %s, Puntatore a Total Quantity: %p, Quantità necessaria: %u\n", ingredient_name, (void *)recipes[i].ingredient_quantities[j], recipes[i].needed_quantities[j]);
+            }
+            else
+            {
+                printf("  Ingrediente non trovato\n");
+            }
         }
     }
 }
 
+// Main function for testing
 int main()
 {
     unsigned int current_character;
@@ -339,18 +354,18 @@ int main()
     add_ingredient("tuorlo", 100, 150);
     add_ingredient("tuorlo", 100, 150);
     add_ingredient("tuorlo", 100, 100);
-    print_ingredient_table();
+    // print_ingredient_table();
+    // print_recipe_table();
 
-    // Print the contents of the recipe table
-    print_recipe_table();
-
-    // Free the dynamic memory allocations
+    // Free allocated memory (example for illustration, you should free all allocated memory properly in real code)
     for (unsigned int i = 0; i < num_ingredients_total; i++)
+    {
         free(ingredients_total[i].batches);
+    }
     free(ingredients_total);
+
     for (unsigned int i = 0; i < num_recipes; i++)
     {
-        free(recipes[i].ingredient_names);
         free(recipes[i].ingredient_quantities);
         free(recipes[i].needed_quantities);
     }
