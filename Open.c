@@ -294,34 +294,36 @@ void print_ingredient_table()
     }
 }
 
-// O(n) time, O(n) space
+// O(n^2) time, O(1) space (where n is the number of recipes)
 void print_recipe_table()
 {
-    printf("Recipe Table:\n");
-    printf("Numero ricette: %u\n", num_recipes);
+    printf("Tabella Ricette:\n");
     for (unsigned int i = 0; i < num_recipes; i++)
     {
-        printf("Ricetta: %s, Numero ingredienti: %u\n", recipes[i].name, recipes[i].num_ingredients);
+        printf("Ricetta: %s\n", recipes[i].name);
+        printf("  Ingredienti:\n");
         for (unsigned int j = 0; j < recipes[i].num_ingredients; j++)
         {
             // Trova il nome dell'ingrediente utilizzando il puntatore ingredient_quantities[j]
             char *ingredient_name = NULL;
             for (unsigned int k = 0; k < num_ingredients_total; k++)
+            {
                 if (recipes[i].ingredient_quantities[j] == &ingredients_total[k].total_quantity)
                 {
                     ingredient_name = ingredients_total[k].name;
                     break;
                 }
+            }
 
-            if (ingredient_name)
-                printf("  Ingrediente: %s, Puntatore a Total Quantity: %p, Quantità necessaria: %u\n", ingredient_name, (void *)recipes[i].ingredient_quantities[j], recipes[i].needed_quantities[j]);
-            else
-                printf("  Ingrediente non trovato\n");
+            // Stampa il nome dell'ingrediente e la quantità necessaria
+            printf("    %s: %u\n", ingredient_name, recipes[i].needed_quantities[j]);
         }
     }
 }
 
-// Main function for testing
+
+
+ 
 int main()
 {
     unsigned int current_character;
