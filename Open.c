@@ -7,7 +7,7 @@
 #define INITIAL_SIZE 768 // Initial size of the line buffer (WORD_SIZE * 3)
 
 // Global variables
-unsigned int courier_frequency, courier_capacity, num_recipes = 0, max_recipes = 0, num_ingredients_total = 0, max_ingredients_total = 0, time_elapsed = 0;
+unsigned int courier_frequency, courier_capacity, num_recipes = 0, max_recipes = 0, time_elapsed = 0;
 
 // Structure to represent a batch of an ingredient
 typedef struct
@@ -17,16 +17,17 @@ typedef struct
 } Batch;
 
 // Structure to represent an ingredient
-typedef struct
+typedef struct Ingredient
 {
     char name[WORD_SIZE];
     unsigned int total_quantity;
     Batch *batches;
     unsigned int num_batches;
     unsigned int max_batches;
+    struct Ingredient *next;
 } Ingredient;
 
-Ingredient *ingredients_total = NULL; // Dynamic array of total ingredients
+Ingredient *ingredients_total = NULL; // Linked list of total ingredients
 
 // Structure to represent a recipe
 typedef struct
@@ -82,38 +83,45 @@ void add_batch(Ingredient *ingredient, unsigned int quantity, unsigned int expir
 // O(n) time, O(1) space
 void add_ingredient(char *name, unsigned int quantity, int expiration_time)
 {
-    int index = -1;
-    for (unsigned int i = 0; i < num_ingredients_total; i++)
-        if (strcmp(ingredients_total[i].name, name) == 0)
-        {
-            index = i;
-            break;
-        }
+    Ingredient *current = ingredients_total;
+    Ingredient *prev = NULL;
 
-    if (index != -1)
+    while (current != NULL && strcmp(current->name, name) != 0)
+    {
+        prev = current;
+        current = current->next;
+    }
+
+    if (current != NULL)
     {
         // If the ingredient exists, update the total quantity and add the new batch if expiration_time is specified
-        ingredients_total[index].total_quantity += quantity;
+        current->total_quantity += quantity;
         if (expiration_time != -1)
-            add_batch(&ingredients_total[index], quantity, expiration_time + time_elapsed);
+            add_batch(current, quantity, expiration_time + time_elapsed);
     }
     else
     {
-        // If the ingredient does not exist, resize the total ingredients array if needed
-        if (num_ingredients_total >= max_ingredients_total)
-        {
-            max_ingredients_total++;
-            ingredients_total = realloc(ingredients_total, max_ingredients_total * sizeof(Ingredient));
-        }
-        // Add the new ingredient and the first batch if expiration_time is specified
-        strcpy(ingredients_total[num_ingredients_total].name, name);
-        ingredients_total[num_ingredients_total].total_quantity = quantity;
-        ingredients_total[num_ingredients_total].batches = malloc(sizeof(Batch));
-        ingredients_total[num_ingredients_total].num_batches = 0;
-        ingredients_total[num_ingredients_total].max_batches = 1;
+        // If the ingredient does not exist, create a new ingredient
+        Ingredient *new_ingredient = malloc(sizeof(Ingredient));
+        strcpy(new_ingredient->name, name);
+        new_ingredient->total_quantity = quantity;
+        new_ingredient->batches = malloc(sizeof(Batch));
+        new_ingredient->num_batches = 0;
+        new_ingredient->max_batches = 1;
+        new_ingredient->next = NULL;
+
         if (expiration_time != -1)
-            add_batch(&ingredients_total[num_ingredients_total], quantity, expiration_time + time_elapsed);
-        num_ingredients_total++;
+            add_batch(new_ingredient, quantity, expiration_time + time_elapsed);
+
+        if (prev == NULL)
+        {
+            // Adding the first ingredient to the list
+            ingredients_total = new_ingredient;
+        }
+        else
+        {
+            prev->next = new_ingredient;
+        }
     }
 }
 
@@ -138,11 +146,13 @@ void aggiungi_ricetta(char *name, char **ingredients, unsigned int *quantities, 
 {
     // Check if the recipe already exists
     for (unsigned int i = 0; i < num_recipes; i++)
+    {
         if (strcmp(recipes[i].name, name) == 0)
         {
             printf("ignorato\n");
             return;
         }
+    }
 
     // Resize the recipes array if needed
     if (num_recipes >= max_recipes)
@@ -159,25 +169,26 @@ void aggiungi_ricetta(char *name, char **ingredients, unsigned int *quantities, 
         add_ingredient(ingredients[i], 0, -1);
 
         // Find the ingredient in the global list
-        unsigned int j;
-        for (j = 0; j < num_ingredients_total; j++)
-            if (strcmp(ingredients_total[j].name, ingredients[i]) == 0)
-                break;
+        Ingredient *current = ingredients_total;
+        while (current != NULL && strcmp(current->name, ingredients[i]) != 0)
+        {
+            current = current->next;
+        }
 
-        add_ingredient_to_recipe(&recipes[num_recipes], i, &ingredients_total[j].total_quantity, quantities[i]);
+        add_ingredient_to_recipe(&recipes[num_recipes], i, &current->total_quantity, quantities[i]);
     }
 
     num_recipes++;
     printf("aggiunta\n");
 }
+
 // O(n) time, O(n) space (where n is the length of the input line)
 void manage_aggiungi_ricetta(char *line)
 {
     // Skip the command "aggiungi_ricetta"
     char *token = strtok(line + strlen("aggiungi_ricetta") + 1, " ");
-
     // Extract the recipe name
-    char *name = strdup(token);
+    char *name = token;
 
     // Initialize variables to store ingredient information
     char **ingredients = NULL;
@@ -191,18 +202,15 @@ void manage_aggiungi_ricetta(char *line)
         // Check if we have enough space in the arrays, if not, resize them
         if (num_ingredients >= max_ingredients)
         {
+
             max_ingredients += 1;
             ingredients = realloc(ingredients, max_ingredients * sizeof(char *));
             quantities = realloc(quantities, max_ingredients * sizeof(unsigned int));
         }
 
-        // Extract ingredient name
-        char *ingredient_name = strdup(token);
+        // Extract ingredient name and quantity
+        char *ingredient_name = token;
         token = strtok(NULL, " ");
-        if (token == NULL)
-            break;
-
-        // Extract quantity
         unsigned int quantity = atoi(token);
 
         // Add the ingredient to the arrays
@@ -214,23 +222,21 @@ void manage_aggiungi_ricetta(char *line)
     // Call the aggiungi_ricetta function
     aggiungi_ricetta(name, ingredients, quantities, num_ingredients);
 
-    // Free the memory allocated for the recipe name and the ingredients
-    free(name);
-    for (unsigned int i = 0; i < num_ingredients; ++i)
-        free(ingredients[i]);
+    // Free the memory allocated for the ingredients
     free(ingredients);
     free(quantities);
 }
 
 // O(1) time, O(1) space
-void rifornimento(int index, unsigned int quantity, unsigned int expiration_time)
+void rifornimento(Ingredient *ingredient, unsigned int quantity, unsigned int expiration_time)
 {
     // Add the quantity to the existing ingredient's total quantity
-    ingredients_total[index].total_quantity += quantity;
+    ingredient->total_quantity += quantity;
 
     // Add the batch to the existing ingredient
-    add_batch(&ingredients_total[index], quantity, expiration_time + time_elapsed);
+    add_batch(ingredient, quantity, expiration_time);
 }
+
 // O(n) time, O(n) space (where n is the length of the input line)
 void manage_rifornimento(char *line)
 {
@@ -256,19 +262,17 @@ void manage_rifornimento(char *line)
         unsigned int expiration_time = atoi(token);
 
         // Check if the ingredient already exists in the total ingredients list
-        int index = -1;
-        for (unsigned int i = 0; i < num_ingredients_total; i++)
-            if (strcmp(ingredients_total[i].name, ingredient_name) == 0)
-            {
-                index = i;
-                break;
-            }
+        Ingredient *current = ingredients_total;
+        while (current != NULL && strcmp(current->name, ingredient_name) != 0)
+        {
+            current = current->next;
+        }
 
         // If the ingredient doesn't exist, add it directly with the data from the replenishment
-        if (index == -1)
+        if (current == NULL)
             add_ingredient(ingredient_name, quantity, expiration_time);
         else
-            rifornimento(index, quantity, expiration_time);
+            rifornimento(current, quantity, expiration_time);
 
         // Get the next token (ingredient name)
         token = strtok(NULL, " ");
@@ -279,18 +283,20 @@ void manage_rifornimento(char *line)
 void print_ingredient_table()
 {
     printf("Ingredient Table:\n");
-    printf("Numero ingredienti: %u\n", num_ingredients_total);
-    for (unsigned int i = 0; i < num_ingredients_total; i++)
+    Ingredient *current = ingredients_total;
+    while (current != NULL)
     {
-        printf("Ingredient: %s, Total Quantity: %u", ingredients_total[i].name, ingredients_total[i].total_quantity);
-        if (ingredients_total[i].num_batches > 0)
+        printf("Ingredient: %s, Total Quantity: %u", current->name, current->total_quantity);
+        if (current->num_batches > 0)
         {
             printf(", Batches:\n");
-            for (unsigned int j = 0; j < ingredients_total[i].num_batches; j++)
-                printf("  Quantity: %u, Expiration Time: %u\n", ingredients_total[i].batches[j].quantity, ingredients_total[i].batches[j].expiration_time);
+            for (unsigned int j = 0; j < current->num_batches; j++)
+                printf("  Quantity: %u, Expiration Time: %u\n", current->batches[j].quantity, current->batches[j].expiration_time);
         }
         else
             printf(", No batches\n");
+
+        current = current->next;
     }
 }
 
@@ -306,11 +312,11 @@ void print_recipe_table()
         {
             // Trova il nome dell'ingrediente utilizzando il puntatore ingredient_quantities[j]
             char *ingredient_name = NULL;
-            for (unsigned int k = 0; k < num_ingredients_total; k++)
+            for (Ingredient *current = ingredients_total; current != NULL; current = current->next)
             {
-                if (recipes[i].ingredient_quantities[j] == &ingredients_total[k].total_quantity)
+                if (recipes[i].ingredient_quantities[j] == &current->total_quantity)
                 {
-                    ingredient_name = ingredients_total[k].name;
+                    ingredient_name = current->name;
                     break;
                 }
             }
@@ -321,9 +327,6 @@ void print_recipe_table()
     }
 }
 
-
-
- 
 int main()
 {
     unsigned int current_character;
@@ -383,16 +386,19 @@ int main()
     }
 
     // Print the contents of the ingredient table
-    add_ingredient("burro", 100, 150);
-    add_ingredient("tuorlo", 100, 150);
-    add_ingredient("tuorlo", 100, 100);
     print_ingredient_table();
+    // Print the contents of the recipe table
     print_recipe_table();
 
     // Free allocated memory
-    for (unsigned int i = 0; i < num_ingredients_total; i++)
-        free(ingredients_total[i].batches);
-    free(ingredients_total);
+    Ingredient *current = ingredients_total;
+    while (current != NULL)
+    {
+        Ingredient *next = current->next;
+        free(current->batches);
+        free(current);
+        current = next;
+    }
     for (unsigned int i = 0; i < num_recipes; i++)
     {
         free(recipes[i].ingredient_quantities);
