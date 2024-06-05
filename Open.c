@@ -82,16 +82,16 @@ Ingredient *create_ingredient(char *name, unsigned int quantity, int expiration_
 }
 
 // Time complexity: O(log n) in average case, O(n) in worst case, space complexity: O(1). Function to insert an ingredient into the binary tree
-Ingredient *insert_ingredient(Ingredient *root, char *name, unsigned int quantity, int expiration_time)
+Ingredient *rifornimento(Ingredient *root, char *name, unsigned int quantity, int expiration_time)
 {
     if (root == NULL)
         return create_ingredient(name, quantity, expiration_time);
 
     int cmp = strcmp(name, root->name);
     if (cmp < 0)
-        root->left = insert_ingredient(root->left, name, quantity, expiration_time);
+        root->left = rifornimento(root->left, name, quantity, expiration_time);
     else if (cmp > 0)
-        root->right = insert_ingredient(root->right, name, quantity, expiration_time);
+        root->right = rifornimento(root->right, name, quantity, expiration_time);
     else
     {
         // If the ingredient already exists, update its quantity and add a batch if expiration_time is specified
@@ -192,7 +192,7 @@ void aggiungi_ricetta(char *name, char **ingredients, unsigned int *quantities, 
     Recipe *new_recipe = find_recipe(recipes, name);
     for (unsigned int i = 0; i < num_ingredients; i++)
     {
-        ingredients_total = insert_ingredient(ingredients_total, ingredients[i], 0, -1);
+        ingredients_total = rifornimento(ingredients_total, ingredients[i], 0, -1);
 
         Ingredient *current = find_ingredient(ingredients_total, ingredients[i]);
         new_recipe->ingredient_quantities[i] = &current->total_quantity;
@@ -255,7 +255,7 @@ void manage_rifornimento(char *line)
             break;
         unsigned int expiration_time = atoi(token);
 
-        ingredients_total = insert_ingredient(ingredients_total, ingredient_name, quantity, expiration_time);
+        ingredients_total = rifornimento(ingredients_total, ingredient_name, quantity, expiration_time);
 
         token = strtok(NULL, " ");
     }
