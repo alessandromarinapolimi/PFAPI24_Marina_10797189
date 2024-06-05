@@ -41,7 +41,7 @@ typedef struct
 Recipe *recipes = NULL; // Dynamic array of recipes
 
 // O(log n) time, O(1) space
-unsigned int find_insert_index_binary(Batch *batches, unsigned int num_batches, unsigned int expiration_time)
+unsigned int find_insert_index_binary_batch(Batch *batches, unsigned int num_batches, unsigned int expiration_time)
 {
     unsigned int low = 0;
     unsigned int high = num_batches;
@@ -57,12 +57,28 @@ unsigned int find_insert_index_binary(Batch *batches, unsigned int num_batches, 
 
     return low;
 }
+// O(log n) time, O(1) space
+unsigned int find_insert_index_binary_recipe(Recipe *recipes, unsigned int num_recipes, char *name)
+{
+    unsigned int low = 0;
+    unsigned int high = num_recipes;
 
+    while (low < high)
+    {
+        unsigned int mid = low + (high - low) / 2;
+        if (strcmp(recipes[mid].name, name) < 0)
+            low = mid + 1;
+        else
+            high = mid;
+    }
+
+    return low;
+}
 // O(n) time, O(1) space
 void add_batch(Ingredient *ingredient, unsigned int quantity, unsigned int expiration_time)
 {
     // Find the insertion index using binary search
-    unsigned int insert_index = find_insert_index_binary(ingredient->batches, ingredient->num_batches, expiration_time);
+    unsigned int insert_index = find_insert_index_binary_batch(ingredient->batches, ingredient->num_batches, expiration_time);
 
     // Resize the batches array if needed
     if (ingredient->num_batches >= ingredient->max_batches)
@@ -79,7 +95,6 @@ void add_batch(Ingredient *ingredient, unsigned int quantity, unsigned int expir
     ingredient->batches[insert_index].expiration_time = expiration_time;
     ingredient->num_batches++;
 }
-
 // O(n) time, O(1) space
 void add_ingredient(char *name, unsigned int quantity, int expiration_time)
 {
@@ -124,7 +139,6 @@ void add_ingredient(char *name, unsigned int quantity, int expiration_time)
         }
     }
 }
-
 // O(1) time, O(1) space
 void init_recipe(Recipe *recipe, char *name, unsigned int num_ingredients)
 {
@@ -133,25 +147,21 @@ void init_recipe(Recipe *recipe, char *name, unsigned int num_ingredients)
     recipe->needed_quantities = malloc(num_ingredients * sizeof(unsigned int));
     recipe->num_ingredients = num_ingredients;
 }
-
-// O(n) time, O(1) space
+// O(1) time, O(1) space
 void add_ingredient_to_recipe(Recipe *recipe, unsigned int ingredient_index, unsigned int *quantity, unsigned int needed_quantity)
 {
     recipe->ingredient_quantities[ingredient_index] = quantity;
     recipe->needed_quantities[ingredient_index] = needed_quantity;
 }
-
-// O(n) time, O(n) space (where n is the number of ingredients in the recipe)
+// O(n + m) time, O(n) space (where n is the number of recipes and m is the number of ingredients in the new recipe)
 void aggiungi_ricetta(char *name, char **ingredients, unsigned int *quantities, unsigned int num_ingredients)
 {
     // Check if the recipe already exists
-    for (unsigned int i = 0; i < num_recipes; i++)
+    unsigned int index = find_insert_index_binary_recipe(recipes, num_recipes, name);
+    if (index < num_recipes && strcmp(recipes[index].name, name) == 0)
     {
-        if (strcmp(recipes[i].name, name) == 0)
-        {
-            printf("ignorato\n");
-            return;
-        }
+        printf("ignorato\n");
+        return;
     }
 
     // Resize the recipes array if needed
@@ -161,11 +171,15 @@ void aggiungi_ricetta(char *name, char **ingredients, unsigned int *quantities, 
         recipes = realloc(recipes, max_recipes * sizeof(Recipe));
     }
 
+    // Shift recipes to make space for the new recipe
+    memmove(&recipes[index + 1], &recipes[index], (num_recipes - index) * sizeof(Recipe));
+
     // Initialize the new recipe
-    init_recipe(&recipes[num_recipes], name, num_ingredients);
+    init_recipe(&recipes[index], name, num_ingredients);
     for (unsigned int i = 0; i < num_ingredients; i++)
     {
         // Add ingredient to the global list without specifying expiration time
+        // (assuming add_ingredient function exists and is updated similarly)
         add_ingredient(ingredients[i], 0, -1);
 
         // Find the ingredient in the global list
@@ -175,13 +189,12 @@ void aggiungi_ricetta(char *name, char **ingredients, unsigned int *quantities, 
             current = current->next;
         }
 
-        add_ingredient_to_recipe(&recipes[num_recipes], i, &current->total_quantity, quantities[i]);
+        add_ingredient_to_recipe(&recipes[index], i, &current->total_quantity, quantities[i]);
     }
 
     num_recipes++;
     printf("aggiunta\n");
 }
-
 // O(n) time, O(n) space (where n is the length of the input line)
 void manage_aggiungi_ricetta(char *line)
 {
@@ -202,7 +215,6 @@ void manage_aggiungi_ricetta(char *line)
         // Check if we have enough space in the arrays, if not, resize them
         if (num_ingredients >= max_ingredients)
         {
-
             max_ingredients += 1;
             ingredients = realloc(ingredients, max_ingredients * sizeof(char *));
             quantities = realloc(quantities, max_ingredients * sizeof(unsigned int));
@@ -226,7 +238,6 @@ void manage_aggiungi_ricetta(char *line)
     free(ingredients);
     free(quantities);
 }
-
 // O(1) time, O(1) space
 void rifornimento(Ingredient *ingredient, unsigned int quantity, unsigned int expiration_time)
 {
@@ -236,7 +247,6 @@ void rifornimento(Ingredient *ingredient, unsigned int quantity, unsigned int ex
     // Add the batch to the existing ingredient
     add_batch(ingredient, quantity, expiration_time);
 }
-
 // O(n) time, O(n) space (where n is the length of the input line)
 void manage_rifornimento(char *line)
 {
@@ -278,7 +288,6 @@ void manage_rifornimento(char *line)
         token = strtok(NULL, " ");
     }
 }
-
 // O(n) time, O(1) space
 void print_ingredient_table()
 {
@@ -299,7 +308,6 @@ void print_ingredient_table()
         current = current->next;
     }
 }
-
 // O(n^2) time, O(1) space (where n is the number of recipes)
 void print_recipe_table()
 {
@@ -326,7 +334,6 @@ void print_recipe_table()
         }
     }
 }
-
 int main()
 {
     unsigned int current_character;
