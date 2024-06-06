@@ -284,7 +284,6 @@ void add_order_to_queue(Recipe *recipe, unsigned int quantity)
         order_queue.rear = new_node;
     }
 }
-
 // Time complexity: O(n), space complexity: O(n). Function to process the queue and fulfill orders
 void ordine()
 {
@@ -323,7 +322,6 @@ void ordine()
         }
     }
 }
-
 // Time complexity: Depends on the length of the input line, space complexity: O(1). Function to manage orders
 void manage_ordine(char *line)
 {
@@ -353,7 +351,6 @@ int recipe_in_queue(RecipeQueue queue, char *name)
     }
     return 0;
 }
-
 // Time complexity: O(n), space complexity: O(n). Function to remove a recipe from the binary tree
 Recipe *rimuovi_ricetta(Recipe *root, char *name)
 {
@@ -376,7 +373,6 @@ Recipe *rimuovi_ricetta(Recipe *root, char *name)
     }
     return root;
 }
-
 // Time complexity: O(n), space complexity: O(1). Function to manage removing a recipe
 void manage_rimuovi_ricetta(char *line)
 {
@@ -463,6 +459,7 @@ void print_order_queue(RecipeQueue queue) // TODO: delete after ending
         current = current->next;
     }
 }
+
 // Time complexity: Depends on the length of the input line, space complexity: O(1). Function to manage restocking
 void manage_rifornimento(char *line)
 {
