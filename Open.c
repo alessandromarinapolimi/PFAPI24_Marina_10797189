@@ -2,20 +2,15 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
-
-#define WORD_SIZE 256    // Size of a single word
-#define INITIAL_SIZE 768 // Initial size of the line buffer (WORD_SIZE * 3)
-
-// Global variables
-unsigned int courier_frequency, courier_capacity, num_recipes = 0, max_recipes = 0, time_elapsed = 0;
-
+#define WORD_SIZE 256                                                                                 // Size of a single word
+#define INITIAL_SIZE 768                                                                              // Initial size of the line buffer (WORD_SIZE * 3)
+unsigned int courier_frequency, courier_capacity, num_recipes = 0, max_recipes = 0, time_elapsed = 0; // Global variables
 // Structure to represent a batch of an ingredient
 typedef struct
 {
     unsigned int quantity;
     unsigned int expiration_time;
 } Batch;
-
 // Structure to represent an ingredient
 typedef struct Ingredient
 {
@@ -27,9 +22,7 @@ typedef struct Ingredient
     struct Ingredient *left;
     struct Ingredient *right;
 } Ingredient;
-
-Ingredient *ingredients_total = NULL; // Binary tree of total ingredients
-
+Ingredient *ingredients_total = NULL; // Binary tree of all ingredients
 // Structure to represent a recipe
 typedef struct Recipe
 {
@@ -40,26 +33,23 @@ typedef struct Recipe
     struct Recipe *left;
     struct Recipe *right;
 } Recipe;
-
-Recipe *recipes = NULL; // Binary tree of recipes
-
+Recipe *recipes = NULL; // Binary tree of all recipes
 // Structure to represent a node in the recipe queue
 typedef struct RecipeNode
 {
     Recipe *recipe;
     unsigned int quantity;
+    unsigned int arrival_time;
     struct RecipeNode *next;
 } RecipeNode;
-
 // Structure to represent the recipe queue
 typedef struct RecipeQueue
 {
     RecipeNode *front;
     RecipeNode *rear;
 } RecipeQueue;
-
-RecipeQueue order_queue = {NULL, NULL}; // Queue for managing recipe orders
-
+RecipeQueue order_queue = {NULL, NULL};           // Queue for managing orders
+RecipeQueue completed_order_queue = {NULL, NULL}; // Queue for managing estinguished orders
 // Time complexity: O(log n), space complexity: O(1).  Function to compare batches by expiration time using binary insertion
 unsigned int find_insert_index_binary_batch(Batch *batches, unsigned int num_batches, unsigned int expiration_time)
 {
@@ -77,7 +67,6 @@ unsigned int find_insert_index_binary_batch(Batch *batches, unsigned int num_bat
 
     return low;
 }
-
 // Time complexity: O(1), space complexity: O(1).  Function to create a new ingredient node
 Ingredient *create_ingredient(char *name, unsigned int quantity, int expiration_time)
 {
@@ -97,7 +86,6 @@ Ingredient *create_ingredient(char *name, unsigned int quantity, int expiration_
     }
     return new_ingredient;
 }
-
 // Time complexity: O(log n) in average case, O(n) in worst case, space complexity: O(1). Function to insert an ingredient into the binary tree
 Ingredient *rifornimento(Ingredient *root, char *name, unsigned int quantity, int expiration_time)
 {
@@ -130,7 +118,6 @@ Ingredient *rifornimento(Ingredient *root, char *name, unsigned int quantity, in
 
     return root;
 }
-
 // Time complexity: O(1), space complexity: O(1). Function to create a new recipe node
 Recipe *create_recipe(char *name, unsigned int num_ingredients)
 {
@@ -143,7 +130,6 @@ Recipe *create_recipe(char *name, unsigned int num_ingredients)
     new_recipe->right = NULL;
     return new_recipe;
 }
-
 // Time complexity: O(log n) in average case, O(n) in worst case, space complexity: O(1). Function to insert a recipe into the binary tree
 Recipe *insert_recipe(Recipe *root, char *name, char **ingredients, unsigned int *quantities, unsigned int num_ingredients)
 {
@@ -164,7 +150,6 @@ Recipe *insert_recipe(Recipe *root, char *name, char **ingredients, unsigned int
 
     return root;
 }
-
 // Time complexity: O(log n) in average case, O(n) in worst case, space complexity: O(1). Function to find an ingredient in the binary tree
 Ingredient *find_ingredient(Ingredient *root, char *name)
 {
@@ -179,7 +164,6 @@ Ingredient *find_ingredient(Ingredient *root, char *name)
     else
         return root;
 }
-
 // Time complexity: O(log n) in average case, O(n) in worst case, space complexity: O(1). Function to find a recipe in the binary tree
 Recipe *find_recipe(Recipe *root, char *name)
 {
@@ -194,7 +178,6 @@ Recipe *find_recipe(Recipe *root, char *name)
     else
         return root;
 }
-
 // Time complexity: O(log n) in average case, O(n) in worst case, space complexity: O(1). Function to add a new recipe
 void aggiungi_ricetta(char *name, char **ingredients, unsigned int *quantities, unsigned int num_ingredients)
 {
@@ -219,7 +202,6 @@ void aggiungi_ricetta(char *name, char **ingredients, unsigned int *quantities, 
     num_recipes++;
     printf("aggiunta\n");
 }
-
 // Time complexity: Depends on the length of the input line, space complexity: O(1). Function to manage adding a recipe
 void manage_aggiungi_ricetta(char *line)
 {
@@ -255,30 +237,6 @@ void manage_aggiungi_ricetta(char *line)
     free(quantities);
 }
 
-// Time complexity: Depends on the length of the input line, space complexity: O(1). Function to manage restocking
-void manage_rifornimento(char *line)
-{
-    char *token = strtok(line + strlen("rifornimento") + 1, " ");
-
-    while (token != NULL)
-    {
-        char *ingredient_name = token;
-        token = strtok(NULL, " ");
-        if (token == NULL)
-            break;
-        unsigned int quantity = atoi(token);
-        token = strtok(NULL, " ");
-        if (token == NULL)
-            break;
-        unsigned int expiration_time = atoi(token);
-
-        ingredients_total = rifornimento(ingredients_total, ingredient_name, quantity, expiration_time);
-
-        token = strtok(NULL, " ");
-    }
-    printf("rifornito\n");
-}
-
 // Time complexity: O(n), space complexity: O(n). Function to check if an order can be fulfilled
 int can_fulfill_order(Recipe *recipe, unsigned int order_quantity)
 {
@@ -289,7 +247,6 @@ int can_fulfill_order(Recipe *recipe, unsigned int order_quantity)
     }
     return 1;
 }
-
 // Time complexity: O(n), space complexity: O(n). Function to fulfill an order
 void fulfill_order(Recipe *recipe, unsigned int order_quantity)
 {
@@ -298,24 +255,50 @@ void fulfill_order(Recipe *recipe, unsigned int order_quantity)
         *(recipe->ingredient_quantities[i]) -= recipe->needed_quantities[i] * order_quantity;
     }
 }
-
-// Time complexity: O(n), space complexity: O(n). Function to add an order to the queue
+// Time complexity: O(n), space complexity: O(n). Function to add an order to the queue or fulfill it immediately
 void add_order_to_queue(Recipe *recipe, unsigned int quantity)
 {
-    RecipeNode *new_node = malloc(sizeof(RecipeNode));
-    new_node->recipe = recipe;
-    new_node->quantity = quantity;
-    new_node->next = NULL;
-
-    if (order_queue.rear == NULL)
+    // Check if the order can be fulfilled immediately
+    if (can_fulfill_order(recipe, quantity))
     {
-        order_queue.front = new_node;
+        fulfill_order(recipe, quantity);
+        printf("ordine completato: %s x%u\n", recipe->name, quantity); // TODO: delete after
+
+        // Add the completed order to the completed order queue
+        RecipeNode *new_node = malloc(sizeof(RecipeNode));
+        new_node->recipe = recipe;
+        new_node->quantity = quantity;
+        new_node->next = NULL;
+
+        if (completed_order_queue.rear == NULL)
+        {
+            completed_order_queue.front = new_node;
+        }
+        else
+        {
+            completed_order_queue.rear->next = new_node;
+        }
+        completed_order_queue.rear = new_node;
     }
     else
     {
-        order_queue.rear->next = new_node;
+        // Order cannot be fulfilled immediately, add it to the order queue
+        printf("accettato\n");
+        RecipeNode *new_node = malloc(sizeof(RecipeNode));
+        new_node->recipe = recipe;
+        new_node->quantity = quantity;
+        new_node->next = NULL;
+
+        if (order_queue.rear == NULL)
+        {
+            order_queue.front = new_node;
+        }
+        else
+        {
+            order_queue.rear->next = new_node;
+        }
+        order_queue.rear = new_node;
     }
-    order_queue.rear = new_node;
 }
 
 // Time complexity: O(n), space complexity: O(n). Function to process the queue and fulfill orders
@@ -329,7 +312,23 @@ void ordine()
         if (can_fulfill_order(current->recipe, current->quantity))
         {
             fulfill_order(current->recipe, current->quantity);
-            printf("ordine completato: %s x%u\n", current->recipe->name, current->quantity); // TODO: change and test
+            printf("ordine completato: %s x%u\n", current->recipe->name, current->quantity); // TODO: delete after
+
+            // Add the completed order to the completed order queue
+            RecipeNode *new_node = malloc(sizeof(RecipeNode));
+            new_node->recipe = current->recipe;
+            new_node->quantity = current->quantity;
+            new_node->next = NULL;
+
+            if (completed_order_queue.rear == NULL)
+            {
+                completed_order_queue.front = new_node;
+            }
+            else
+            {
+                completed_order_queue.rear->next = new_node;
+            }
+            completed_order_queue.rear = new_node;
 
             RecipeNode *temp = current;
             current = current->next;
@@ -418,7 +417,6 @@ Recipe *rimuovi_ricetta(Recipe *root, char *name)
 
     return root;
 }
-
 // Time complexity: O(n), space complexity: O(1). Function to manage removing a recipe
 void manage_rimuovi_ricetta(char *line)
 {
@@ -435,8 +433,32 @@ void manage_rimuovi_ricetta(char *line)
     // Remove the recipe
     recipes = rimuovi_ricetta(recipes, recipe_name);
 }
+// Time complexity: O(n), space complexity: O(n). Function to free the memory allocated for the ingredients
+void free_ingredients(Ingredient *root)
+{
+    if (root == NULL)
+        return;
 
-// Time complexity: O(n), space complexity: O(1). Function to print the ingredient table
+    free_ingredients(root->left);
+    free_ingredients(root->right);
+
+    free(root->batches);
+    free(root);
+}
+// Time complexity: O(n), space complexity: O(n). Function to free the memory allocated for the recipes
+void free_recipes(Recipe *root)
+{
+    if (root == NULL)
+        return;
+
+    free_recipes(root->left);
+    free_recipes(root->right);
+
+    free(root->ingredient_quantities);
+    free(root->needed_quantities);
+    free(root);
+}
+
 void print_ingredients(Ingredient *root) // TODO: delete after ending
 {
     if (root == NULL)
@@ -456,8 +478,6 @@ void print_ingredients(Ingredient *root) // TODO: delete after ending
 
     print_ingredients(root->right);
 }
-
-// Time complexity: O(n), space complexity: O(1). Function to print the recipe table
 void print_recipes(Recipe *root) // TODO: delete after ending
 {
     if (root == NULL)
@@ -489,33 +509,32 @@ void print_order_queue() // TODO: delete after ending
         current = current->next;
     }
 }
-// Time complexity: O(n), space complexity: O(n). Function to free the memory allocated for the ingredients
-void free_ingredients(Ingredient *root)
+// Time complexity: Depends on the length of the input line, space complexity: O(1). Function to manage restocking
+void manage_rifornimento(char *line)
 {
-    if (root == NULL)
-        return;
+    char *token = strtok(line + strlen("rifornimento") + 1, " ");
 
-    free_ingredients(root->left);
-    free_ingredients(root->right);
+    while (token != NULL)
+    {
+        char *ingredient_name = token;
+        token = strtok(NULL, " ");
+        if (token == NULL)
+            break;
+        unsigned int quantity = atoi(token);
+        token = strtok(NULL, " ");
+        if (token == NULL)
+            break;
+        unsigned int expiration_time = atoi(token);
 
-    free(root->batches);
-    free(root);
+        ingredients_total = rifornimento(ingredients_total, ingredient_name, quantity, expiration_time);
+
+        token = strtok(NULL, " ");
+    }
+    printf("rifornito\n");
+
+    // Check completed orders
+    ordine();
 }
-
-// Time complexity: O(n), space complexity: O(n). Function to free the memory allocated for the recipes
-void free_recipes(Recipe *root)
-{
-    if (root == NULL)
-        return;
-
-    free_recipes(root->left);
-    free_recipes(root->right);
-
-    free(root->ingredient_quantities);
-    free(root->needed_quantities);
-    free(root);
-}
-
 int main()
 {
     unsigned int current_character;
@@ -567,6 +586,7 @@ int main()
             }
         }
         time_elapsed++;
+        // TODO: manage courier
         free(line);
     }
 
