@@ -2,9 +2,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
-#define WORD_SIZE 256                                                                                 // Size of a single word
-#define INITIAL_SIZE 768                                                                              // Initial size of the line buffer (WORD_SIZE * 3)
-unsigned int courier_frequency, courier_capacity, num_recipes = 0, max_recipes = 0, time_elapsed = 0; // Global variables
+#define WORD_SIZE 256                                            // Size of a single word
+#define INITIAL_SIZE 768                                         // Initial size of the line buffer (WORD_SIZE * 3)
+unsigned int num_recipes = 0, max_recipes = 0, time_elapsed = 0; // Global variables
 // Structure to represent a batch of an ingredient
 typedef struct
 {
@@ -29,6 +29,7 @@ typedef struct Recipe
     char name[WORD_SIZE];
     unsigned int **ingredient_quantities;
     unsigned int *needed_quantities;
+    unsigned int weight;
     unsigned int num_ingredients;
     struct Recipe *left;
     struct Recipe *right;
@@ -126,6 +127,7 @@ Recipe *create_recipe(char *name, unsigned int num_ingredients)
     new_recipe->ingredient_quantities = malloc(num_ingredients * sizeof(unsigned int *));
     new_recipe->needed_quantities = malloc(num_ingredients * sizeof(unsigned int));
     new_recipe->num_ingredients = num_ingredients;
+    new_recipe->weight = 0;
     new_recipe->left = NULL;
     new_recipe->right = NULL;
     return new_recipe;
@@ -190,13 +192,15 @@ void aggiungi_ricetta(char *name, char **ingredients, unsigned int *quantities, 
     recipes = insert_recipe(recipes, name, ingredients, quantities, num_ingredients);
 
     Recipe *new_recipe = find_recipe(recipes, name);
+
     for (unsigned int i = 0; i < num_ingredients; i++)
     {
         ingredients_total = rifornimento(ingredients_total, ingredients[i], 0, -1);
 
         Ingredient *current = find_ingredient(ingredients_total, ingredients[i]);
         new_recipe->ingredient_quantities[i] = &current->total_quantity;
-        new_recipe->needed_quantities[i] = quantities[i];
+        new_recipe->needed_quantities[i] = quantities[i]; 
+        new_recipe->weight += quantities[i];  
     }
 
     num_recipes++;
@@ -549,8 +553,7 @@ void manage_rifornimento(char *line)
 }
 int main()
 {
-    unsigned int current_character;
-
+    unsigned int current_character, courier_frequency, courier_capacity;
     // Read the two numbers from the first line
     scanf("%u %u", &courier_frequency, &courier_capacity);
     // Read characters until EOF
