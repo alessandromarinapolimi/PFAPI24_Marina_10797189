@@ -258,6 +258,7 @@ void fulfill_order(Recipe *recipe, unsigned int order_quantity)
 // Time complexity: O(n), space complexity: O(n). Function to add an order to the queue or fulfill it immediately
 void add_order_to_queue(Recipe *recipe, unsigned int quantity)
 {
+    printf("accettato\n");
     // Check if the order can be fulfilled immediately
     if (can_fulfill_order(recipe, quantity))
     {
@@ -283,7 +284,6 @@ void add_order_to_queue(Recipe *recipe, unsigned int quantity)
     else
     {
         // Order cannot be fulfilled immediately, add it to the order queue
-        printf("accettato\n");
         RecipeNode *new_node = malloc(sizeof(RecipeNode));
         new_node->recipe = recipe;
         new_node->quantity = quantity;
@@ -373,7 +373,7 @@ void manage_ordine(char *line)
     add_order_to_queue(recipe, quantity);
 }
 
-// Time complexity: O(n), space complexity: O(log n). Function to remove a recipe from the binary tree
+// Time complexity: O(n), space complexity: O(n). Function to remove a recipe from the binary tree
 Recipe *rimuovi_ricetta(Recipe *root, char *name)
 {
     if (root == NULL)
@@ -393,9 +393,9 @@ Recipe *rimuovi_ricetta(Recipe *root, char *name)
     else
     {
         // Recipe found
-        if (order_queue.front != NULL)
+        if (order_queue.front != NULL || completed_order_queue.front != NULL)
         {
-            // Check if the recipe is present in any pending orders
+            // Check if the recipe is present in any pending orders or completed orders
             RecipeNode *current = order_queue.front;
             while (current != NULL)
             {
@@ -406,8 +406,19 @@ Recipe *rimuovi_ricetta(Recipe *root, char *name)
                 }
                 current = current->next;
             }
+
+            current = completed_order_queue.front;
+            while (current != NULL)
+            {
+                if (strcmp(current->recipe->name, name) == 0)
+                {
+                    printf("ordini in sospeso\n");
+                    return root;
+                }
+                current = current->next;
+            }
         }
-        // Recipe not found in pending orders, remove it
+        // Recipe not found in pending or completed orders, remove it
         printf("rimossa\n");
         free(root->ingredient_quantities);
         free(root->needed_quantities);
@@ -417,6 +428,7 @@ Recipe *rimuovi_ricetta(Recipe *root, char *name)
 
     return root;
 }
+
 // Time complexity: O(n), space complexity: O(1). Function to manage removing a recipe
 void manage_rimuovi_ricetta(char *line)
 {
