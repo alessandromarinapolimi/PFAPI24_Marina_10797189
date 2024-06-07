@@ -407,6 +407,16 @@ void manage_rimuovi_ricetta(char *line)
     recipes = rimuovi_ricetta(recipes, recipe_name);
 }
 // Time complexity: O(n), space complexity: O(n). Function to free the memory allocated for the ingredients
+void free_queue(RecipeNode *root)
+{
+    while (root != NULL)
+    {
+        RecipeNode *temp = root;
+        root = root->next;
+        free(temp);
+    }
+}
+// Time complexity: O(n), space complexity: O(n). Function to free the memory allocated for the ingredients
 void free_ingredients(Ingredient *root)
 {
     if (root == NULL)
@@ -524,7 +534,6 @@ int main()
     __attribute__((unused)) int result = fscanf(stdin, "%u %u", &courier_frequency, &courier_capacity);
     while (getchar() != '\n')
         ;
-    // Read characters until EOF
     while ((current_character = getchar_unlocked()) != EOF)
     {
         if (time_elapsed > 0 && time_elapsed % courier_frequency == 0)
@@ -567,20 +576,8 @@ int main()
     }
     if (time_elapsed > 0 && time_elapsed % courier_frequency == 0)
         manage_courier(courier_capacity);
-    RecipeNode *current_node = order_queue.front;
-    while (current_node != NULL)
-    {
-        RecipeNode *temp = current_node;
-        current_node = current_node->next;
-        free(temp);
-    }
-    current_node = completed_order_queue.front;
-    while (current_node != NULL)
-    {
-        RecipeNode *temp = current_node;
-        current_node = current_node->next;
-        free(temp);
-    }
+    free_queue(order_queue.front);
+    free_queue(completed_order_queue.front);
     free_ingredients(ingredients_total);
     free_recipes(recipes);
     return 0;
