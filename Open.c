@@ -119,7 +119,7 @@ Recipe *create_recipe(char *name, unsigned int num_ingredients)
 {
     Recipe *new_recipe = malloc(sizeof(Recipe));
     strcpy(new_recipe->name, name);
-    new_recipe->ingredient_pointers = malloc(num_ingredients * sizeof(Ingredient *));
+    new_recipe->ingredient_pointers = malloc(num_ingredients * sizeof(Ingredient *)); // TODO: fix memory
     new_recipe->needed_quantities = malloc(num_ingredients * sizeof(unsigned int));
     new_recipe->num_ingredients = num_ingredients;
     new_recipe->weight = 0;
@@ -179,7 +179,7 @@ void aggiungi_ricetta(char *name, char **ingredients, unsigned int *quantities, 
     {
         ingredients_total = rifornimento(ingredients_total, ingredients[i], 0, -1);
         Ingredient *current = find_ingredient(ingredients_total, ingredients[i]);
-        new_recipe->ingredient_pointers[i] = current; // TODO: fix here
+        new_recipe->ingredient_pointers[i] = current; // TODO: fix memory
         new_recipe->needed_quantities[i] = quantities[i];
         new_recipe->weight += quantities[i];
     }
@@ -292,7 +292,7 @@ void add_order_to_completed_queue(RecipeNode *new_node)
 void add_order_to_queue(Recipe *recipe, unsigned int quantity)
 {
     printf("accettato\n");
-    RecipeNode *new_node = malloc(sizeof(RecipeNode));
+    RecipeNode *new_node = malloc(sizeof(RecipeNode)); // TODO: fix memory
     new_node->recipe = recipe;
     new_node->quantity = quantity;
     new_node->arrival_time = time_elapsed;
