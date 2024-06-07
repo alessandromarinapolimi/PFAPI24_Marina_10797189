@@ -256,14 +256,14 @@ void fulfill_order(Recipe *recipe, unsigned int order_quantity)
 void add_order_to_queue(Recipe *recipe, unsigned int quantity)
 {
     printf("accettato\n");
+    RecipeNode *new_node = malloc(sizeof(RecipeNode));
+    new_node->recipe = recipe;
+    new_node->quantity = quantity;
+    new_node->arrival_time = time_elapsed;
+    new_node->next = NULL;
     if (can_fulfill_order(recipe, quantity))
     {
         fulfill_order(recipe, quantity);
-        printf("ordine completato: %s x%u\n", recipe->name, quantity);
-        RecipeNode *new_node = malloc(sizeof(RecipeNode));
-        new_node->recipe = recipe;
-        new_node->quantity = quantity;
-        new_node->next = NULL;
         if (completed_order_queue.rear == NULL)
             completed_order_queue.front = new_node;
         else
@@ -272,11 +272,6 @@ void add_order_to_queue(Recipe *recipe, unsigned int quantity)
     }
     else
     {
-        RecipeNode *new_node = malloc(sizeof(RecipeNode));
-        new_node->recipe = recipe;
-        new_node->quantity = quantity;
-        new_node->arrival_time = time_elapsed;
-        new_node->next = NULL;
         if (order_queue.rear == NULL)
             order_queue.front = new_node;
         else
@@ -300,7 +295,7 @@ void ordine()
             new_node->recipe = current->recipe;
             new_node->quantity = current->quantity;
             new_node->arrival_time = current->arrival_time;
-             new_node->next = NULL;
+            new_node->next = NULL;
             if (completed_order_queue.rear == NULL)
                 completed_order_queue.front = new_node;
             else
@@ -321,7 +316,6 @@ void ordine()
             prev = current;
             current = current->next;
         }
-        printf("accettato\n");
     }
 }
 // Time complexity: Depends on the length of the input line, space complexity: O(1). Function to manage orders
@@ -556,9 +550,17 @@ int main()
     unsigned int current_character, courier_frequency, courier_capacity;
     // Read the two numbers from the first line
     scanf("%u %u", &courier_frequency, &courier_capacity);
+
+    // Discard the rest of the first line
+    while ((current_character = getchar()) != '\n' && current_character != EOF)
+        ;
+
     // Read characters until EOF
     while ((current_character = getchar_unlocked()) != EOF)
     {
+        printf("  t: %u\n", time_elapsed);
+        if (time_elapsed > 0 && time_elapsed % courier_frequency == 0) // TODO: check order with "time_elapsed++;"
+            manage_courier(courier_capacity);
         if (isdigit(current_character)) // TODO: delete if useless
             continue;
 
@@ -600,17 +602,18 @@ int main()
                 break;
             }
         }
+
         time_elapsed++;
         remove_spoiled_batches_from_tree(ingredients_total); // TODO: check if this slows too much the code
-        // TODO: manage courier
         free(line);
     }
+    //   print_ingredients(ingredients_total);     // TODO: delete after ending
+    //  print_recipes(recipes);                   // TODO: delete after ending
+    // print_order_queue(order_queue);           // TODO: delete after ending
+    //  print_order_queue(completed_order_queue); // TODO: delete after ending
 
-    print_ingredients(ingredients_total);     // TODO: delete after ending
-    print_recipes(recipes);                   // TODO: delete after ending
-    print_order_queue(order_queue);           // TODO: delete after ending
-    print_order_queue(completed_order_queue); // TODO: delete after ending
-
+    if (time_elapsed > 0 && time_elapsed % courier_frequency == 0) // TODO: check order with "time_elapsed++;"
+        manage_courier(courier_capacity);
     free_ingredients(ingredients_total);
     free_recipes(recipes);
 
