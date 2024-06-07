@@ -2,9 +2,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
-#define WORD_SIZE 256          // Size of a single word
-#define INITIAL_SIZE 768       // Initial size of the line buffer (WORD_SIZE * 3)
-unsigned int time_elapsed = 0; // Global variable
+#define WORD_SIZE 256    // Size of a single word
+#define INITIAL_SIZE 768 // Initial size of the line buffer (WORD_SIZE * 3)
+unsigned int time_elapsed = 0;
 // Structure to represent a batch of an ingredient
 typedef struct
 {
@@ -294,12 +294,13 @@ void ordine()
         if (can_fulfill_order(current->recipe, current->quantity))
         {
             fulfill_order(current->recipe, current->quantity);
-            printf("ordine completato: %s x%u\n", current->recipe->name, current->quantity); // TODO: delete after
+            //  printf("ordine completato: %s x%u\n", current->recipe->name, current->quantity); // TODO: delete after
             // Add the completed order to the completed order queue
             RecipeNode *new_node = malloc(sizeof(RecipeNode));
             new_node->recipe = current->recipe;
             new_node->quantity = current->quantity;
-            new_node->next = NULL;
+            new_node->arrival_time = current->arrival_time;
+             new_node->next = NULL;
             if (completed_order_queue.rear == NULL)
                 completed_order_queue.front = new_node;
             else
@@ -320,6 +321,7 @@ void ordine()
             prev = current;
             current = current->next;
         }
+        printf("accettato\n");
     }
 }
 // Time complexity: Depends on the length of the input line, space complexity: O(1). Function to manage orders
@@ -514,7 +516,41 @@ void remove_spoiled_batches_from_tree(Ingredient *root)
     remove_spoiled_batches(root);
     remove_spoiled_batches_from_tree(root->right);
 }
-
+// Time complexity: O(n), space complexity: O(1).
+void manage_courier(int courier_capacity)
+{
+    if (completed_order_queue.front == NULL)
+    {
+        printf("camioncino vuoto\n");
+        return;
+    }
+    unsigned int current_load = 0;
+    RecipeNode *prev = NULL;
+    RecipeNode *current = completed_order_queue.front;
+    while (current != NULL && current_load < courier_capacity)
+    {
+        unsigned int order_weight = current->recipe->weight * current->quantity;
+        if (current_load + order_weight <= courier_capacity)
+        {
+            current_load += order_weight;
+            printf("%u %s %u\n", current->arrival_time, current->recipe->name, current->quantity);
+            RecipeNode *temp = current;
+            current = current->next;
+            if (prev == NULL)
+                completed_order_queue.front = current;
+            else
+                prev->next = current;
+            if (completed_order_queue.front == NULL)
+                completed_order_queue.rear = NULL;
+            free(temp);
+        }
+        else
+        {
+            prev = current;
+            current = current->next;
+        }
+    }
+}
 int main()
 {
     unsigned int current_character, courier_frequency, courier_capacity;
