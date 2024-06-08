@@ -132,8 +132,8 @@ Recipe *create_recipe(char *name, char **ingredients, unsigned int *quantities, 
 {
     Recipe *new_recipe = malloc(sizeof(Recipe)); // <----------
     strcpy(new_recipe->name, name);
-    new_recipe->ingredient_pointers = malloc(num_ingredients * sizeof(Ingredient *));  // <----------
-    new_recipe->needed_quantities = malloc(num_ingredients * sizeof(unsigned int));  // <----------
+    new_recipe->ingredient_pointers = malloc(num_ingredients * sizeof(Ingredient *)); // <----------
+    new_recipe->needed_quantities = malloc(num_ingredients * sizeof(unsigned int));   // <----------
     new_recipe->num_ingredients = num_ingredients;
     new_recipe->weight = 0;
     new_recipe->left = NULL;
@@ -464,17 +464,13 @@ void remove_spoiled_batches(Ingredient *ingredient)
 {
     unsigned int write_index = 0;
     for (unsigned int i = 0; i < ingredient->num_batches; i++)
-    {
         if (time_elapsed < ingredient->batches[i].expiration_time)
         {
             ingredient->batches[write_index] = ingredient->batches[i];
             write_index++;
         }
         else
-        {
             ingredient->total_quantity -= ingredient->batches[i].quantity;
-        }
-    }
     ingredient->num_batches = write_index;
 }
 
@@ -547,6 +543,11 @@ int main()
             }
             line[current_index++] = current_character;
             current_character = getchar_unlocked();
+        }
+        if (current_index >= max_size)
+        {
+            char *temp = realloc(line, (max_size + 1) * sizeof(char));
+            line = temp;
         }
         line[current_index] = '\0';
 
