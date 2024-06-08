@@ -114,36 +114,6 @@ Ingredient *rifornimento(Ingredient *root, char *name, unsigned int quantity, in
     }
     return root;
 }
-// Time complexity: O(1), space complexity: O(n)
-Recipe *create_recipe(char *name, unsigned int num_ingredients)
-{
-    Recipe *new_recipe = malloc(sizeof(Recipe));
-    strcpy(new_recipe->name, name);
-    new_recipe->ingredient_pointers = malloc(num_ingredients * sizeof(Ingredient *)); // TODO: fix memory
-    new_recipe->needed_quantities = malloc(num_ingredients * sizeof(unsigned int));
-    new_recipe->num_ingredients = num_ingredients;
-    new_recipe->weight = 0;
-    new_recipe->left = NULL;
-    new_recipe->right = NULL;
-    return new_recipe;
-}
-// Time complexity: O(log n), space complexity: O(n)
-Recipe *insert_recipe(Recipe *root, char *name, char **ingredients, unsigned int *quantities, unsigned int num_ingredients)
-{
-    if (root == NULL)
-        return create_recipe(name, num_ingredients);
-    int cmp = strcmp(name, root->name);
-    if (cmp < 0)
-        root->left = insert_recipe(root->left, name, ingredients, quantities, num_ingredients);
-    else if (cmp > 0)
-        root->right = insert_recipe(root->right, name, ingredients, quantities, num_ingredients);
-    else
-    {
-        printf("ignorato\n");
-        return root;
-    }
-    return root;
-}
 // Time complexity: Depends on the number of ingredients in the recipe, space complexity: O(n)
 Ingredient *find_ingredient(Ingredient *root, char *name)
 {
@@ -157,6 +127,42 @@ Ingredient *find_ingredient(Ingredient *root, char *name)
     else
         return root;
 }
+// Time complexity: O(1), space complexity: O(n)
+Recipe *create_recipe(char *name, char **ingredients, unsigned int *quantities, unsigned int num_ingredients)
+{
+    Recipe *new_recipe = malloc(sizeof(Recipe)); // <----------
+    strcpy(new_recipe->name, name);
+    new_recipe->ingredient_pointers = malloc(num_ingredients * sizeof(Ingredient *));  // <----------
+    new_recipe->needed_quantities = malloc(num_ingredients * sizeof(unsigned int));  // <----------
+    new_recipe->num_ingredients = num_ingredients;
+    new_recipe->weight = 0;
+    new_recipe->left = NULL;
+    new_recipe->right = NULL;
+    for (unsigned int i = 0; i < num_ingredients; i++)
+    {
+        ingredients_total = rifornimento(ingredients_total, ingredients[i], 0, -1);
+        new_recipe->ingredient_pointers[i] = find_ingredient(ingredients_total, ingredients[i]);
+        new_recipe->needed_quantities[i] = quantities[i];
+        new_recipe->weight += quantities[i];
+    }
+    return new_recipe;
+}
+
+// Time complexity: O(log n), space complexity: O(n)
+Recipe *insert_recipe(Recipe *root, char *name, char **ingredients, unsigned int *quantities, unsigned int num_ingredients)
+{
+    if (root == NULL)
+        return create_recipe(name, ingredients, quantities, num_ingredients);
+    int cmp = strcmp(name, root->name);
+    if (cmp < 0)
+        root->left = insert_recipe(root->left, name, ingredients, quantities, num_ingredients);
+    else if (cmp > 0)
+        root->right = insert_recipe(root->right, name, ingredients, quantities, num_ingredients);
+    else
+        printf("ignorato\n");
+    return root;
+}
+
 // Time complexity: O(log n), space complexity: O(1)
 Recipe *find_recipe(Recipe *root, char *name)
 {
@@ -174,15 +180,6 @@ Recipe *find_recipe(Recipe *root, char *name)
 void aggiungi_ricetta(char *name, char **ingredients, unsigned int *quantities, unsigned int num_ingredients)
 {
     recipes = insert_recipe(recipes, name, ingredients, quantities, num_ingredients);
-    Recipe *new_recipe = find_recipe(recipes, name);
-    for (unsigned int i = 0; i < num_ingredients; i++)
-    {
-        ingredients_total = rifornimento(ingredients_total, ingredients[i], 0, -1);
-        Ingredient *current = find_ingredient(ingredients_total, ingredients[i]);
-        new_recipe->ingredient_pointers[i] = current; // TODO: fix memory
-        new_recipe->needed_quantities[i] = quantities[i];
-        new_recipe->weight += quantities[i];
-    }
     printf("aggiunta\n");
 }
 // Time complexity: Depends on the number of ingredients in the recipe, space complexity: O(n)
