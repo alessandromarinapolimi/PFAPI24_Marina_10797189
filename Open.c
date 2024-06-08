@@ -349,7 +349,7 @@ Recipe *rimuovi_ricetta(Recipe *root, char *name)
         root->right = rimuovi_ricetta(root->right, name);
     else
     {
-        if ((order_queue.front != NULL && recipe_in_queue(order_queue, name)) || (completed_order_queue.front != NULL && recipe_in_queue(completed_order_queue, name))) // Check if the recipe is present in any pending orders or completed orders
+        if (order_queue.front != NULL && recipe_in_queue(order_queue, name) || completed_order_queue.front != NULL && recipe_in_queue(completed_order_queue, name))
             return root;
         printf("rimossa\n");
         free(root->ingredient_pointers);
@@ -359,7 +359,6 @@ Recipe *rimuovi_ricetta(Recipe *root, char *name)
     }
     return root;
 }
-
 // Time complexity: O(n), space complexity: O(1). Function to manage removing a recipe
 void manage_rimuovi_ricetta(char *line)
 {
@@ -395,7 +394,6 @@ void free_recipes(Recipe *root)
     free(root->needed_quantities);
     free(root);
 }
-
 // Time complexity: O(n), space complexity: O(n). Function to free the memory allocated for the ingredients
 void free_queue(RecipeNode *root)
 {
