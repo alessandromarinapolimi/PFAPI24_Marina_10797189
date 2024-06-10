@@ -149,18 +149,23 @@ Recipe *create_recipe(char *name, char **ingredients, unsigned int *quantities, 
 }
 
 // Time complexity: O(log n), space complexity: O(n)
-Recipe *insert_recipe(Recipe *root, char *name, char **ingredients, unsigned int *quantities, unsigned int num_ingredients)
+int insert_recipe(Recipe **root, char *name, char **ingredients, unsigned int *quantities, unsigned int num_ingredients)
 {
-    if (root == NULL)
-        return create_recipe(name, ingredients, quantities, num_ingredients);
-    int cmp = strcmp(name, root->name);
+    if (*root == NULL)
+    {
+        *root = create_recipe(name, ingredients, quantities, num_ingredients);
+        return 1;
+    }
+    int cmp = strcmp(name, (*root)->name);
     if (cmp < 0)
-        root->left = insert_recipe(root->left, name, ingredients, quantities, num_ingredients);
+        return insert_recipe(&((*root)->left), name, ingredients, quantities, num_ingredients);
     else if (cmp > 0)
-        root->right = insert_recipe(root->right, name, ingredients, quantities, num_ingredients);
+        return insert_recipe(&((*root)->right), name, ingredients, quantities, num_ingredients);
     else
+    {
         printf("ignorato\n");
-    return root;
+        return 0;
+    }
 }
 
 // Time complexity: O(log n), space complexity: O(1)
@@ -179,8 +184,8 @@ Recipe *find_recipe(Recipe *root, char *name)
 // Time complexity: O(n log n), space complexity: O(n)
 void aggiungi_ricetta(char *name, char **ingredients, unsigned int *quantities, unsigned int num_ingredients)
 {
-    recipes = insert_recipe(recipes, name, ingredients, quantities, num_ingredients);
-    printf("aggiunta\n");
+    if (insert_recipe(&recipes, name, ingredients, quantities, num_ingredients))
+        printf("aggiunta\n");
 }
 // Time complexity: Depends on the number of ingredients in the recipe, space complexity: O(n)
 void manage_aggiungi_ricetta(char *line)
@@ -255,9 +260,7 @@ RecipeNode *find_insert_queue_position(RecipeNode *head, RecipeNode *new_node)
     RecipeNode *high = head;
     while (high != NULL)
     {
-        int current_weight = high->recipe->weight * high->quantity;
-        int new_weight = new_node->recipe->weight * new_node->quantity;
-        if (current_weight > new_weight || (current_weight == new_weight && high->arrival_time <= new_node->arrival_time))
+        if (high->arrival_time > new_node->arrival_time)
         {
             low = high;
             high = high->next;
@@ -346,7 +349,7 @@ Recipe *rimuovi_ricetta(Recipe *root, char *name)
         root->right = rimuovi_ricetta(root->right, name);
     else
     {
-        if (order_queue.front != NULL && recipe_in_queue(order_queue, name) || completed_order_queue.front != NULL && recipe_in_queue(completed_order_queue, name))
+        if ((order_queue.front != NULL && recipe_in_queue(order_queue, name)) || (completed_order_queue.front != NULL && recipe_in_queue(completed_order_queue, name)))
             return root;
         printf("rimossa\n");
         free(root->ingredient_pointers);
@@ -483,7 +486,24 @@ void remove_spoiled_batches_from_tree(Ingredient *root)
     remove_spoiled_batches(root);
     remove_spoiled_batches_from_tree(root->right);
 }
-
+RecipeNode *find_insert_queue_weight(RecipeNode *head, RecipeNode *new_node)
+{
+    RecipeNode *low = NULL;
+    RecipeNode *high = head;
+    while (high != NULL)
+    {
+        int current_weight = high->recipe->weight * high->quantity;
+        int new_weight = new_node->recipe->weight * new_node->quantity;
+        if (current_weight > new_weight || (current_weight == new_weight && high->arrival_time <= new_node->arrival_time))
+        {
+            low = high;
+            high = high->next;
+        }
+        else
+            break;
+    }
+    return low;
+}
 // Time complexity: O(n), space complexity: O(1).
 void manage_courier(int courier_capacity)
 {
@@ -492,32 +512,68 @@ void manage_courier(int courier_capacity)
         printf("camioncino vuoto\n");
         return;
     }
+
     unsigned int current_load = 0;
     RecipeNode *prev = NULL;
     RecipeNode *current = completed_order_queue.front;
-    while (current != NULL && current_load < courier_capacity)
+    RecipeNode *temp_courier_queue_front = NULL; // Coda temporanea per gli ordini da consegnare
+    RecipeNode *temp_courier_queue_rear = NULL;  // Puntatore alla fine della coda temporanea
+
+    // Iterazione attraverso gli ordini completati
+    while (current != NULL)
     {
         unsigned int order_weight = current->recipe->weight * current->quantity;
-        if (current_load + order_weight <= courier_capacity)
+
+        // Se l'aggiunta dell'ordine supera la capacità del corriere, interrompi il processo
+        if (current_load + order_weight > courier_capacity)
         {
-            current_load += order_weight;
-            printf("%u %s %u\n", current->arrival_time, current->recipe->name, current->quantity);
-            RecipeNode *next = current->next;
-            free(current);
-            current = next;
-            if (prev == NULL)
-                completed_order_queue.front = current;
-            else
-                prev->next = current;
-            if (completed_order_queue.front == NULL)
-                completed_order_queue.rear = NULL;
+            break;
+        }
+
+        // Se l'aggiunta dell'ordine non supera la capacità del corriere
+        current_load += order_weight;
+
+        // Rimuovi l'ordine dalla coda completed_order_queue
+        RecipeNode *next = current->next;
+        if (prev == NULL)
+            completed_order_queue.front = next;
+        else
+            prev->next = next;
+
+        // Trova la posizione corretta per inserire il nodo nella coda temporanea in base al peso
+        RecipeNode *insert_pos = find_insert_queue_weight(temp_courier_queue_front, current);
+        if (insert_pos == NULL)
+        {
+            current->next = temp_courier_queue_front;
+            temp_courier_queue_front = current;
         }
         else
         {
-            prev = current;
-            current = current->next;
+            current->next = insert_pos->next;
+            insert_pos->next = current;
         }
+        if (current->next == NULL)
+            temp_courier_queue_rear = current;
+
+        // Aggiorna il puntatore corrente
+        current = next;
     }
+
+    // Stampa gli ordini dalla coda temporanea
+    RecipeNode *temp_current = temp_courier_queue_front;
+    while (temp_current != NULL)
+    {
+        printf("%u %s %u\n", temp_current->arrival_time, temp_current->recipe->name, temp_current->quantity);
+        temp_current = temp_current->next;
+    }
+
+    // Libera la memoria della coda temporanea
+    free_queue(temp_courier_queue_front);
+
+    // Libera la memoria degli ordini rimanenti nella coda completed_order_queue
+    free_queue(completed_order_queue.front);
+    completed_order_queue.front = NULL;
+    completed_order_queue.rear = NULL;
 }
 
 int main()
