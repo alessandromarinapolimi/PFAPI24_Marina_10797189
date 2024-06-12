@@ -337,29 +337,68 @@ int recipe_in_queue(RecipeQueue queue, char *name)
     return 0;
 }
 
-// Time complexity: O(n), space complexity: O(n). Function to remove a recipe from the binary tree
-Recipe *rimuovi_ricetta(Recipe *root, char *name)
+Recipe *find_minimum(Recipe *root)
+{
+    while (root->left != NULL)
+        root = root->left;
+    return root;
+}
+
+Recipe *rimuovi_ricetta(Recipe *root, char *name, int *removed)
 {
     if (root == NULL)
         return NULL;
     int cmp = strcmp(name, root->name);
     if (cmp < 0)
-        root->left = rimuovi_ricetta(root->left, name);
+        root->left = rimuovi_ricetta(root->left, name, removed);
     else if (cmp > 0)
-        root->right = rimuovi_ricetta(root->right, name);
+        root->right = rimuovi_ricetta(root->right, name, removed);
     else
     {
         if ((order_queue.front != NULL && recipe_in_queue(order_queue, name)) || (completed_order_queue.front != NULL && recipe_in_queue(completed_order_queue, name)))
             return root;
-        printf("rimossa\n");
+        // Print only if removing the recipe
+        if (!(*removed))
+        {
+            printf("rimossa\n");
+            *removed = 1;
+        }
+
+        if (root->left == NULL)
+        {
+            Recipe *temp = root->right;
+            free(root->ingredient_pointers);
+            free(root->needed_quantities);
+            free(root);
+            return temp;
+        }
+        else if (root->right == NULL)
+        {
+            Recipe *temp = root->left;
+            free(root->ingredient_pointers);
+            free(root->needed_quantities);
+            free(root);
+            return temp;
+        }
+        Recipe *temp = find_minimum(root->right);
+        // Copy data from the minimum node
+        strcpy(root->name, temp->name);
+        root->weight = temp->weight;
+        root->num_ingredients = temp->num_ingredients;
+        // Free the old pointers and allocate new memory for ingredient_pointers and needed_quantities
         free(root->ingredient_pointers);
         free(root->needed_quantities);
-        free(root);
-        return NULL;
+        root->ingredient_pointers = malloc(temp->num_ingredients * sizeof(Ingredient *));
+        for (unsigned int i = 0; i < temp->num_ingredients; i++)
+            root->ingredient_pointers[i] = temp->ingredient_pointers[i];
+        root->needed_quantities = malloc(temp->num_ingredients * sizeof(unsigned int));
+        for (unsigned int i = 0; i < temp->num_ingredients; i++)
+            root->needed_quantities[i] = temp->needed_quantities[i];
+        root->right = rimuovi_ricetta(root->right, temp->name, removed);
     }
     return root;
 }
-// Time complexity: O(n), space complexity: O(1). Function to manage removing a recipe
+
 void manage_rimuovi_ricetta(char *line)
 {
     char *token = strtok(line + strlen("rimuovi_ricetta") + 1, " ");
@@ -370,9 +409,10 @@ void manage_rimuovi_ricetta(char *line)
         printf("non presente\n");
         return;
     }
-    // Remove the recipe
-    recipes = rimuovi_ricetta(recipes, recipe_name);
+    int removed = 0; // To track if a recipe was removed and print only once
+    recipes = rimuovi_ricetta(recipes, recipe_name, &removed);
 }
+
 // Time complexity: O(n), space complexity: O(n). Function to free the memory allocated for the ingredients
 void free_ingredients(Ingredient *root)
 {
@@ -512,35 +552,22 @@ void manage_courier(int courier_capacity)
         printf("camioncino vuoto\n");
         return;
     }
-
     unsigned int current_load = 0;
     RecipeNode *prev = NULL;
     RecipeNode *current = completed_order_queue.front;
-    RecipeNode *temp_courier_queue_front = NULL; // Coda temporanea per gli ordini da consegnare
-    RecipeNode *temp_courier_queue_rear = NULL;  // Puntatore alla fine della coda temporanea
-
-    // Iterazione attraverso gli ordini completati
+    RecipeNode *temp_courier_queue_front = NULL;
+    RecipeNode *temp_courier_queue_rear = NULL;
     while (current != NULL)
     {
         unsigned int order_weight = current->recipe->weight * current->quantity;
-
-        // Se l'aggiunta dell'ordine supera la capacità del corriere, interrompi il processo
         if (current_load + order_weight > courier_capacity)
-        {
             break;
-        }
-
-        // Se l'aggiunta dell'ordine non supera la capacità del corriere
         current_load += order_weight;
-
-        // Rimuovi l'ordine dalla coda completed_order_queue
         RecipeNode *next = current->next;
         if (prev == NULL)
             completed_order_queue.front = next;
         else
             prev->next = next;
-
-        // Trova la posizione corretta per inserire il nodo nella coda temporanea in base al peso
         RecipeNode *insert_pos = find_insert_queue_weight(temp_courier_queue_front, current);
         if (insert_pos == NULL)
         {
@@ -554,23 +581,16 @@ void manage_courier(int courier_capacity)
         }
         if (current->next == NULL)
             temp_courier_queue_rear = current;
-
-        // Aggiorna il puntatore corrente
         current = next;
     }
 
-    // Stampa gli ordini dalla coda temporanea
     RecipeNode *temp_current = temp_courier_queue_front;
     while (temp_current != NULL)
     {
         printf("%u %s %u\n", temp_current->arrival_time, temp_current->recipe->name, temp_current->quantity);
         temp_current = temp_current->next;
     }
-
-    // Libera la memoria della coda temporanea
     free_queue(temp_courier_queue_front);
-
-    // Libera la memoria degli ordini rimanenti nella coda completed_order_queue
     free_queue(completed_order_queue.front);
     completed_order_queue.front = NULL;
     completed_order_queue.rear = NULL;
@@ -606,7 +626,7 @@ int main()
             line = temp;
         }
         line[current_index] = '\0';
-
+        // printf("%s ", line);
         switch (line[2])
         {
         case 'g':
@@ -624,6 +644,7 @@ int main()
         default:
             break;
         }
+
         free(line);
         time_elapsed++;
         remove_spoiled_batches_from_tree(ingredients_total);
