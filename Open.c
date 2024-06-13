@@ -130,10 +130,10 @@ Ingredient *find_ingredient(Ingredient *root, char *name)
 // Time complexity: O(1), space complexity: O(n)
 Recipe *create_recipe(char *name, char **ingredients, unsigned int *quantities, unsigned int num_ingredients)
 {
-    Recipe *new_recipe = malloc(sizeof(Recipe)); // <----------
+    Recipe *new_recipe = malloc(sizeof(Recipe));
     strcpy(new_recipe->name, name);
-    new_recipe->ingredient_pointers = malloc(num_ingredients * sizeof(Ingredient *)); // <----------
-    new_recipe->needed_quantities = malloc(num_ingredients * sizeof(unsigned int));   // <----------
+    new_recipe->ingredient_pointers = malloc(num_ingredients * sizeof(Ingredient *));
+    new_recipe->needed_quantities = malloc(num_ingredients * sizeof(unsigned int));
     new_recipe->num_ingredients = num_ingredients;
     new_recipe->weight = 0;
     new_recipe->left = NULL;
@@ -283,19 +283,50 @@ void ordine(Recipe *recipe, unsigned int quantity)
     if (can_fulfill_order(recipe, quantity))
     {
         fulfill_order(recipe, quantity);
+
+        // Remove from order_queue after moving to completed_order_queue
+        RecipeNode *current = order_queue.front;
+        RecipeNode *prev = NULL;
+        while (current != NULL)
+        {
+            if (current == new_node)
+            {
+                if (prev == NULL)
+                    order_queue.front = current->next;
+                else
+                    prev->next = current->next;
+
+                if (current == order_queue.rear)
+                    order_queue.rear = prev;
+
+                // Free the memory of the removed node
+                free(current);
+                break;
+            }
+            prev = current;
+            current = current->next;
+        }
+
+        // Insert into completed_order_queue in the correct position
         RecipeNode *insert_pos = find_insert_queue_position(completed_order_queue.front, new_node);
         if (insert_pos == NULL)
         {
             new_node->next = completed_order_queue.front;
             completed_order_queue.front = new_node;
+            if (completed_order_queue.rear == NULL)
+            {
+                completed_order_queue.rear = new_node;
+            }
         }
         else
         {
             new_node->next = insert_pos->next;
             insert_pos->next = new_node;
+            if (new_node->next == NULL)
+            {
+                completed_order_queue.rear = new_node;
+            }
         }
-        if (new_node->next == NULL)
-            completed_order_queue.rear = new_node;
     }
     else
     {
@@ -476,29 +507,60 @@ void manage_rifornimento(char *line)
         if (can_fulfill_order(current->recipe, current->quantity))
         {
             fulfill_order(current->recipe, current->quantity);
-            RecipeNode *insert_pos = find_insert_queue_position(completed_order_queue.front, current);
+
+            // Create a new node for the completed order
+            RecipeNode *completed_node = (RecipeNode *)malloc(sizeof(RecipeNode));
+            completed_node->recipe = current->recipe;
+            completed_node->quantity = current->quantity;
+            completed_node->arrival_time = current->arrival_time;
+            completed_node->next = NULL;
+
+            // Remove the node from order_queue
+            if (prev == NULL)
+            {
+                order_queue.front = next;
+            }
+            else
+            {
+                prev->next = next;
+            }
+            if (current == order_queue.rear)
+            {
+                order_queue.rear = prev;
+            }
+
+            // Insert the new node into completed_order_queue in the correct position
+            RecipeNode *insert_pos = find_insert_queue_position(completed_order_queue.front, completed_node);
             if (insert_pos == NULL)
             {
-                current->next = completed_order_queue.front;
-                completed_order_queue.front = current;
+                completed_node->next = completed_order_queue.front;
+                completed_order_queue.front = completed_node;
+                if (completed_order_queue.rear == NULL)
+                {
+                    completed_order_queue.rear = completed_node;
+                }
             }
             else
             {
-                current->next = insert_pos->next;
-                insert_pos->next = current;
+                completed_node->next = insert_pos->next;
+                insert_pos->next = completed_node;
+                if (completed_node->next == NULL)
+                {
+                    completed_order_queue.rear = completed_node;
+                }
             }
-            if (current->next == NULL)
-                completed_order_queue.rear = current;
-            if (prev == NULL)
-                order_queue.front = next;
-            else
-                prev->next = next;
-            if (current == order_queue.rear)
-                order_queue.rear = prev;
+
+            // Free the memory of the removed node
+            free(current);
+
+            // Reset current to continue with the next order in the queue
+            current = next;
         }
         else
+        {
             prev = current;
-        current = next;
+            current = next;
+        }
     }
 }
 
@@ -526,6 +588,7 @@ void remove_spoiled_batches_from_tree(Ingredient *root)
     remove_spoiled_batches(root);
     remove_spoiled_batches_from_tree(root->right);
 }
+// Time complexity: O(n), space complexity: O(1). Function to find the correct insert position in the queue based on weight and arrival_time
 RecipeNode *find_insert_queue_weight(RecipeNode *head, RecipeNode *new_node)
 {
     RecipeNode *low = NULL;
@@ -552,22 +615,39 @@ void manage_courier(int courier_capacity)
         printf("camioncino vuoto\n");
         return;
     }
+
     unsigned int current_load = 0;
     RecipeNode *prev = NULL;
     RecipeNode *current = completed_order_queue.front;
     RecipeNode *temp_courier_queue_front = NULL;
-    RecipeNode *temp_courier_queue_rear = NULL;
+
     while (current != NULL)
     {
         unsigned int order_weight = current->recipe->weight * current->quantity;
+
+        // If adding the current order exceeds the courier capacity, break the loop
         if (current_load + order_weight > courier_capacity)
             break;
+
         current_load += order_weight;
+
+        // Remove the node from completed_order_queue
         RecipeNode *next = current->next;
         if (prev == NULL)
+        {
             completed_order_queue.front = next;
+        }
         else
+        {
             prev->next = next;
+        }
+
+        if (current == completed_order_queue.rear)
+        {
+            completed_order_queue.rear = prev;
+        }
+
+        // Insert the node into temp_courier_queue in the correct position
         RecipeNode *insert_pos = find_insert_queue_weight(temp_courier_queue_front, current);
         if (insert_pos == NULL)
         {
@@ -579,21 +659,19 @@ void manage_courier(int courier_capacity)
             current->next = insert_pos->next;
             insert_pos->next = current;
         }
-        if (current->next == NULL)
-            temp_courier_queue_rear = current;
         current = next;
     }
 
+    // Print the orders in the temporary courier queue
     RecipeNode *temp_current = temp_courier_queue_front;
     while (temp_current != NULL)
     {
         printf("%u %s %u\n", temp_current->arrival_time, temp_current->recipe->name, temp_current->quantity);
         temp_current = temp_current->next;
     }
+
+    // Free the temporary courier queue
     free_queue(temp_courier_queue_front);
-    free_queue(completed_order_queue.front);
-    completed_order_queue.front = NULL;
-    completed_order_queue.rear = NULL;
 }
 
 int main()
