@@ -490,13 +490,14 @@ void manage_rifornimento(char *line)
         token = strtok(NULL, " ");
         if (token == NULL)
             break;
-        unsigned int expiration_time = atoi(token) + time_elapsed;
+        unsigned int expiration_time = atoi(token);
 
         ingredients_total = rifornimento(ingredients_total, ingredient_name, quantity, expiration_time);
 
         token = strtok(NULL, " ");
     }
     printf("rifornito\n");
+
     // Check completed orders
     RecipeNode *current = order_queue.front;
     RecipeNode *prev = NULL;
@@ -506,19 +507,28 @@ void manage_rifornimento(char *line)
         if (can_fulfill_order(current->recipe, current->quantity))
         {
             fulfill_order(current->recipe, current->quantity);
+
             // Create a new node for the completed order
             RecipeNode *completed_node = (RecipeNode *)malloc(sizeof(RecipeNode));
             completed_node->recipe = current->recipe;
             completed_node->quantity = current->quantity;
             completed_node->arrival_time = current->arrival_time;
             completed_node->next = NULL;
+
             // Remove the node from order_queue
             if (prev == NULL)
+            {
                 order_queue.front = next;
+            }
             else
+            {
                 prev->next = next;
+            }
             if (current == order_queue.rear)
+            {
                 order_queue.rear = prev;
+            }
+
             // Insert the new node into completed_order_queue in the correct position
             RecipeNode *insert_pos = find_insert_queue_position(completed_order_queue.front, completed_node);
             if (insert_pos == NULL)
@@ -526,17 +536,23 @@ void manage_rifornimento(char *line)
                 completed_node->next = completed_order_queue.front;
                 completed_order_queue.front = completed_node;
                 if (completed_order_queue.rear == NULL)
+                {
                     completed_order_queue.rear = completed_node;
+                }
             }
             else
             {
                 completed_node->next = insert_pos->next;
                 insert_pos->next = completed_node;
                 if (completed_node->next == NULL)
+                {
                     completed_order_queue.rear = completed_node;
+                }
             }
+
             // Free the memory of the removed node
             free(current);
+
             // Reset current to continue with the next order in the queue
             current = next;
         }
@@ -599,20 +615,14 @@ void manage_courier(int courier_capacity)
         printf("camioncino vuoto\n");
         return;
     }
+
     unsigned int current_load = 0;
     RecipeNode *prev = NULL;
     RecipeNode *current = completed_order_queue.front;
     RecipeNode *temp_courier_queue_front = NULL;
+
     while (current != NULL)
     {
-        // Skip orders with arrival_time equal to time_elapsed
-        if (current->arrival_time == time_elapsed)
-        {
-            prev = current;
-            current = current->next;
-            continue;
-        }
-
         unsigned int order_weight = current->recipe->weight * current->quantity;
 
         // If adding the current order exceeds the courier capacity, break the loop
@@ -620,14 +630,23 @@ void manage_courier(int courier_capacity)
             break;
 
         current_load += order_weight;
+
         // Remove the node from completed_order_queue
         RecipeNode *next = current->next;
         if (prev == NULL)
+        {
             completed_order_queue.front = next;
+        }
         else
+        {
             prev->next = next;
+        }
+
         if (current == completed_order_queue.rear)
+        {
             completed_order_queue.rear = prev;
+        }
+
         // Insert the node into temp_courier_queue in the correct position
         RecipeNode *insert_pos = find_insert_queue_weight(temp_courier_queue_front, current);
         if (insert_pos == NULL)
@@ -663,7 +682,8 @@ int main()
         ;
     while ((current_character = getchar_unlocked()) != EOF)
     {
-
+        if (time_elapsed > 0 && time_elapsed % courier_frequency == 0)
+            manage_courier(courier_capacity);
         unsigned int max_size = INITIAL_SIZE;
         char *line = malloc(INITIAL_SIZE * sizeof(char));
         unsigned int current_index = 0;
@@ -706,11 +726,9 @@ int main()
         free(line);
         time_elapsed++;
         remove_spoiled_batches_from_tree(ingredients_total);
-        if (time_elapsed > 0 && time_elapsed % courier_frequency == 0)
-            manage_courier(courier_capacity);
     }
-    // if (time_elapsed > 0 && time_elapsed % courier_frequency == 0)
-    //     manage_courier(courier_capacity);
+    if (time_elapsed > 0 && time_elapsed % courier_frequency == 0)
+        manage_courier(courier_capacity);
     free_queue(order_queue.front);
     free_queue(completed_order_queue.front);
     free_ingredients(ingredients_total);
