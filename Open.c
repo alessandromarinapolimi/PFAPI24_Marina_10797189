@@ -688,6 +688,7 @@ int main()
     }
     if (time_elapsed > 0 && time_elapsed % courier_frequency == 0)
         manage_courier(courier_capacity);
+    putchar('\n');
     free_queue(order_queue.front);
     free_queue(completed_order_queue.front);
     free_ingredients(ingredients_total);
