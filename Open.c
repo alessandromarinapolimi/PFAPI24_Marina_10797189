@@ -228,10 +228,8 @@ void fulfill_order(Recipe *recipe, unsigned int order_quantity)
     {
         unsigned int required_quantity = recipe->needed_quantities[i] * order_quantity;
         Ingredient *ingredient = recipe->ingredient_pointers[i];
-
         // Decrement the total quantity of the ingredient
         ingredient->total_quantity -= required_quantity;
-
         // Iterate through batches and reduce the required quantity
         unsigned int new_num_batches = 0;
         for (unsigned int j = 0; j < ingredient->num_batches; j++)
@@ -245,12 +243,9 @@ void fulfill_order(Recipe *recipe, unsigned int order_quantity)
             else
             {
                 required_quantity -= ingredient->batches[j].quantity;
-                // Set quantity to 0 for the batch
                 ingredient->batches[j].quantity = 0;
-                // No need to add this batch to the new array if its quantity is zero
             }
         }
-
         // Update the number of batches and resize if necessary
         ingredient->num_batches = new_num_batches;
         if (ingredient->num_batches < ingredient->max_batches)
@@ -286,13 +281,12 @@ void ordine(Recipe *recipe, unsigned int quantity)
     new_node->quantity = quantity;
     new_node->arrival_time = time_elapsed;
     new_node->next = NULL;
-    
+
     // Check if the recipe can be fulfilled
     if (can_fulfill_order(recipe, quantity))
     {
         // Fulfill the order
         fulfill_order(recipe, quantity);
-        
         // Insert into completed_order_queue in the correct position
         RecipeNode *insert_pos = find_insert_queue_position(completed_order_queue.front, new_node);
         if (insert_pos == NULL)
@@ -467,7 +461,6 @@ void free_queue(RecipeNode *root)
 void manage_rifornimento(char *line)
 {
     char *token = strtok(line + strlen("rifornimento") + 1, " ");
-
     while (token != NULL)
     {
         char *ingredient_name = token;
@@ -485,9 +478,6 @@ void manage_rifornimento(char *line)
         token = strtok(NULL, " ");
     }
     printf("rifornito\n");
-
-  //  print_ingredient(ingredients_total);
-  //  printf("%u, -----------\n", time_elapsed);
     // Check completed orders
     RecipeNode *current = order_queue.front;
     RecipeNode *prev = NULL;
@@ -497,14 +487,12 @@ void manage_rifornimento(char *line)
         if (can_fulfill_order(current->recipe, current->quantity))
         {
             fulfill_order(current->recipe, current->quantity);
-
             // Create a new node for the completed order
             RecipeNode *completed_node = (RecipeNode *)malloc(sizeof(RecipeNode));
             completed_node->recipe = current->recipe;
             completed_node->quantity = current->quantity;
             completed_node->arrival_time = current->arrival_time;
             completed_node->next = NULL;
-
             // Remove the node from order_queue
             if (prev == NULL)
                 order_queue.front = next;
@@ -512,7 +500,6 @@ void manage_rifornimento(char *line)
                 prev->next = next;
             if (current == order_queue.rear)
                 order_queue.rear = prev;
-
             // Insert the new node into completed_order_queue in the correct position
             RecipeNode *insert_pos = find_insert_queue_position(completed_order_queue.front, completed_node);
             if (insert_pos == NULL)
@@ -529,10 +516,8 @@ void manage_rifornimento(char *line)
                 if (completed_node->next == NULL)
                     completed_order_queue.rear = completed_node;
             }
-
             // Free the memory of the removed node
             free(current);
-
             // Reset current to continue with the next order in the queue
             current = next;
         }
@@ -542,8 +527,6 @@ void manage_rifornimento(char *line)
             current = next;
         }
     }
-
-   // print_ingredient(ingredients_total);
 }
 
 // Time complexity: O(n), space complexity: O(1). Function to remove expired batches from an ingredient
@@ -606,35 +589,25 @@ void manage_courier(int courier_capacity)
         printf("camioncino vuoto\n");
         return;
     }
-
     unsigned int current_load = 0;
     RecipeNode *prev = NULL;
     RecipeNode *current = completed_order_queue.front;
     RecipeNode *temp_courier_queue_front = NULL;
-
     while (current != NULL)
     {
         unsigned int order_weight = current->recipe->weight * current->quantity;
-      //  printf("nome: %s\n", current->recipe->name);
-      //  printf("peso: %u\n", order_weight);
-      //  printf("arrival: %u\n", current->arrival_time);
-
         // If adding the current order exceeds the courier capacity, break the loop
         if (current_load + order_weight > courier_capacity)
             break;
-
         current_load += order_weight;
-
         // Remove the node from completed_order_queue
         RecipeNode *next = current->next;
         if (prev == NULL)
             completed_order_queue.front = next;
         else
             prev->next = next;
-
         if (current == completed_order_queue.rear)
             completed_order_queue.rear = prev;
-
         // Insert the node into temp_courier_queue in the correct position
         RecipeNode *insert_pos = find_insert_queue_weight(temp_courier_queue_front, current);
         if (insert_pos == NULL)
@@ -657,7 +630,6 @@ void manage_courier(int courier_capacity)
         printf("%u %s %u\n", temp_current->arrival_time, temp_current->recipe->name, temp_current->quantity);
         temp_current = temp_current->next;
     }
-
     // Free the temporary courier queue
     free_queue(temp_courier_queue_front);
 }
@@ -692,7 +664,6 @@ int main()
             line = temp;
         }
         line[current_index] = '\0';
-        // printf("%s ", line);
         switch (line[2])
         {
         case 'g':
