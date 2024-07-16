@@ -3,8 +3,9 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <stdbool.h>
-#define WORD_SIZE 21     // Size of a word
-#define INITIAL_SIZE 252 // Initial size of the line buffer (WORD_SIZE * 3)
+#define WORD_SIZE 20     // Size of a word
+#define ADDING_SIZE 43   // Size of 2 words + 3 spaces
+#define INITIAL_SIZE 185 // Initial size of the line buffer ( 16 + " " + 8 words + 8 spaces); 16 because "aggiungi_ricetta" is exactly 16 characters long
 unsigned int time_elapsed = 0;
 typedef struct
 {
@@ -159,7 +160,7 @@ bool insert_recipe(Recipe **root, char *name, char **ingredients, unsigned int *
         return insert_recipe(&((*root)->right), name, ingredients, quantities, num_ingredients);
     else
     {
-        printf("ignorato\n");
+        puts("ignorato");
         return 0;
     }
 }
@@ -180,7 +181,7 @@ Recipe *find_recipe(Recipe *root, char *name)
 void aggiungi_ricetta(char *name, char **ingredients, unsigned int *quantities, unsigned int num_ingredients)
 {
     if (insert_recipe(&recipes, name, ingredients, quantities, num_ingredients))
-        printf("aggiunta\n");
+        puts("aggiunta");
 }
 // Time complexity: Depends on the number of ingredients in the recipe, space complexity: O(n)
 void manage_aggiungi_ricetta(char *line)
@@ -210,12 +211,58 @@ void manage_aggiungi_ricetta(char *line)
     free(ingredients);
     free(quantities);
 }
+// Time complexity: O(n), space complexity: O(1). Function to remove expired batches from an ingredient
+void remove_spoiled_batches(Ingredient *ingredient)
+{
+    unsigned int write_index = 0;
+    for (unsigned int i = 0; i < ingredient->num_batches; i++)
+    {
+        if (time_elapsed < ingredient->batches[i].expiration_time)
+            ingredient->batches[write_index++] = ingredient->batches[i];
+        else
+            ingredient->total_quantity -= ingredient->batches[i].quantity;
+    }
+    ingredient->num_batches = write_index;
+
+    if (ingredient->num_batches < ingredient->max_batches / 2) // TODO check
+    {
+        ingredient->max_batches = ingredient->num_batches;
+        if (ingredient->num_batches > 0)
+            ingredient->batches = realloc(ingredient->batches, ingredient->max_batches * sizeof(Batch));
+        else
+        {
+            free(ingredient->batches);
+            ingredient->batches = NULL;
+        }
+    }
+}
+// Time complexity: O(n), space complexity: O(1). Function to traverse the binary tree of ingredients and remove expired batches
+void remove_all_spoiled_batches_from_tree(Ingredient *root)
+{
+    if (root == NULL)
+        return;
+    remove_all_spoiled_batches_from_tree(root->left);
+    remove_all_spoiled_batches_from_tree(root->right);
+    remove_spoiled_batches(root);
+}
 // Time complexity: O(n), space complexity: O(1)
+bool can_fulfill_order_optimized(Recipe *recipe, unsigned int order_quantity)
+{
+    for (unsigned int i = 0; i < recipe->num_ingredients; i++)
+    {
+        remove_spoiled_batches(recipe->ingredient_pointers[i]);
+        if (recipe->ingredient_pointers[i]->total_quantity < recipe->needed_quantities[i] * order_quantity)
+            return false;
+    }
+    return true;
+}
 bool can_fulfill_order(Recipe *recipe, unsigned int order_quantity)
 {
     for (unsigned int i = 0; i < recipe->num_ingredients; i++)
+    {
         if (recipe->ingredient_pointers[i]->total_quantity < recipe->needed_quantities[i] * order_quantity)
             return false;
+    }
     return true;
 }
 // Time complexity: O(n + m), space complexity: O(1)
@@ -267,48 +314,17 @@ RecipeNode *find_insert_queue_position(RecipeNode *head, RecipeNode *new_node)
     }
     return low;
 }
-// Time complexity: O(n), space complexity: O(1). Function to remove expired batches from an ingredient
-void remove_spoiled_batches(Ingredient *ingredient)
-{
-    unsigned int write_index = 0;
-    for (unsigned int i = 0; i < ingredient->num_batches; i++)
-        if (time_elapsed < ingredient->batches[i].expiration_time)
-            ingredient->batches[write_index++] = ingredient->batches[i];
-        else
-            ingredient->total_quantity -= ingredient->batches[i].quantity;
-    ingredient->num_batches = write_index;
-    if (ingredient->num_batches < ingredient->max_batches)
-    {
-        ingredient->max_batches = ingredient->num_batches;
-        if (ingredient->num_batches > 0)
-            ingredient->batches = realloc(ingredient->batches, ingredient->max_batches * sizeof(Batch));
-        else
-        {
-            free(ingredient->batches);
-            ingredient->batches = NULL;
-        }
-    }
-}
-// Time complexity: O(n), space complexity: O(1). Function to traverse the binary tree of ingredients and remove expired batches
-void remove_spoiled_batches_from_tree(Ingredient *root)
-{
-    if (root == NULL)
-        return;
-    remove_spoiled_batches_from_tree(root->left);
-    remove_spoiled_batches_from_tree(root->right);
-    remove_spoiled_batches(root);
-}
+
 // Time complexity: O(n), space complexity: O(1). Function to process the queue and fulfill orders
 void ordine(Recipe *recipe, unsigned int quantity)
 {
-    remove_spoiled_batches_from_tree(ingredients_total);
     RecipeNode *new_node = malloc(sizeof(RecipeNode));
     new_node->recipe = recipe;
     new_node->quantity = quantity;
     new_node->arrival_time = time_elapsed;
     new_node->next = NULL;
     // Check if the recipe can be fulfilled
-    if (can_fulfill_order(recipe, quantity))
+    if (can_fulfill_order_optimized(recipe, quantity))
     {
         // Fulfill the order
         fulfill_order(recipe, quantity);
@@ -352,10 +368,10 @@ void manage_ordine(char *line)
     Recipe *recipe = find_recipe(recipes, recipe_name);
     if (recipe == NULL)
     {
-        printf("rifiutato\n");
+        puts("rifiutato");
         return;
     }
-    printf("accettato\n");
+    puts("accettato");
     ordine(recipe, quantity);
 }
 // Time complexity: O(n), space complexity: O(1). Function to check if a recipe is present in a queue
@@ -366,7 +382,7 @@ bool recipe_in_queue(RecipeQueue queue, char *name)
     {
         if (strcmp(current->recipe->name, name) == 0)
         {
-            printf("ordini in sospeso\n");
+            puts("ordini in sospeso");
             return true;
         }
         current = current->next;
@@ -396,7 +412,7 @@ Recipe *rimuovi_ricetta(Recipe *root, char *name, bool *removed)
             return root;
         if (!(*removed))
         {
-            printf("rimossa\n");
+            puts("rimossa");
             *removed = true;
         }
 
@@ -442,7 +458,7 @@ void manage_rimuovi_ricetta(char *line)
     Recipe *found_recipe = find_recipe(recipes, recipe_name);
     if (found_recipe == NULL)
     {
-        printf("non presente\n");
+        puts("non presente");
         return;
     }
     bool removed = false; // To track if a recipe was removed and print only once
@@ -476,7 +492,7 @@ void manage_rifornimento(char *line)
         ingredients_total = rifornimento(ingredients_total, ingredient_name, quantity, expiration_time);
         token = strtok(NULL, " ");
     }
-    printf("rifornito\n");
+    puts("rifornito");
     // Check completed orders
     RecipeNode *current = order_queue.front;
     RecipeNode *prev = NULL;
@@ -526,7 +542,7 @@ void manage_rifornimento(char *line)
             current = next;
         }
     }
-} 
+}
 // Time complexity: O(n), space complexity: O(1). Function to find the correct insert position in the queue based on weight and arrival_time
 RecipeNode *find_insert_queue_weight(RecipeNode *head, RecipeNode *new_node)
 {
@@ -551,7 +567,7 @@ void manage_courier(unsigned int courier_capacity)
 {
     if (completed_order_queue.front == NULL)
     {
-        printf("camioncino vuoto\n");
+        puts("camioncino vuoto");
         return;
     }
     unsigned int current_load = 0;
@@ -613,7 +629,7 @@ int main()
         {
             if (current_index >= max_size)
             {
-                max_size += WORD_SIZE;
+                max_size += ADDING_SIZE;
                 char *temp = realloc(line, max_size * sizeof(char));
                 line = temp;
             }
@@ -635,7 +651,7 @@ int main()
             manage_rimuovi_ricetta(line);
             break;
         case 'f':
-            remove_spoiled_batches_from_tree(ingredients_total);
+            remove_all_spoiled_batches_from_tree(ingredients_total);
             manage_rifornimento(line);
             break;
         case 'd':
