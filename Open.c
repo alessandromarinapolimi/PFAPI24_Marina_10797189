@@ -50,21 +50,7 @@ typedef struct RecipeQueue
 } RecipeQueue;
 RecipeQueue order_queue = {NULL, NULL};           // Queue for managing orders
 RecipeQueue completed_order_queue = {NULL, NULL}; // Queue for managing completed orders
-// Time complexity: O(log n), space complexity: O(1)
-unsigned int find_insert_index_binary_batch(Batch *batches, unsigned int num_batches, unsigned int expiration_time)
-{
-    unsigned int low = 0;
-    unsigned int high = num_batches;
-    while (low < high)
-    {
-        unsigned int mid = low + ((high - low) >> 1);
-        if (batches[mid].expiration_time < expiration_time)
-            low = mid + 1;
-        else
-            high = mid;
-    }
-    return low;
-}
+
 // Time complexity: O(1), space complexity: O(1)
 Ingredient *create_ingredient(char *name)
 {
@@ -72,10 +58,10 @@ Ingredient *create_ingredient(char *name)
     strncpy(new_ingredient->name, name, WORD_SIZE);
     new_ingredient->total_quantity = 0;
     new_ingredient->num_batches = 1;
-    new_ingredient->max_batches = 1;
+    new_ingredient->max_batches = 2;
     new_ingredient->left = NULL;
     new_ingredient->right = NULL;
-    new_ingredient->batches = malloc(8);
+    new_ingredient->batches = malloc(new_ingredient->max_batches * 8);
     return new_ingredient;
 }
 // Time complexity: O(1), space complexity: O(1)
@@ -85,20 +71,111 @@ Ingredient *create_ingredient_from_supplying(char *name, unsigned int quantity, 
     strncpy(new_ingredient->name, name, WORD_SIZE);
     new_ingredient->total_quantity = quantity;
     new_ingredient->num_batches = 1;
-    new_ingredient->max_batches = 1;
+    new_ingredient->max_batches = 2;
     new_ingredient->left = NULL;
     new_ingredient->right = NULL;
-    new_ingredient->batches = malloc(8);
+    new_ingredient->batches = malloc(new_ingredient->max_batches * 8);
     new_ingredient->batches[0].quantity = quantity;
     new_ingredient->batches[0].expiration_time = expiration_time;
     return new_ingredient;
 }
+// Time complexity: Depends on the number of ingredients in the recipe, space complexity: O(n)
+Ingredient *find_or_add_ingredient(Ingredient **root, char *name)
+{
+    int cmp;
+    while (*root != NULL)
+    {
+        cmp = strcmp(name, (*root)->name);
+        if (cmp < 0)
+            root = &(*root)->left;
+        else if (cmp > 0)
+            root = &(*root)->right;
+        else
+            return *root;
+    }
+    *root = create_ingredient(name);
+    return *root;
+}
+
+// Time complexity: O(n), space complexity: O(n)
+void aggiungi_ricetta(Recipe **root, char *name, char **ingredients, unsigned int *quantities, unsigned int num_ingredients)
+{
+    int cmp;
+    while (*root != NULL)
+    {
+        cmp = strcmp(name, (*root)->name);
+        if (cmp < 0)
+            root = &((*root)->left);
+        else if (cmp > 0)
+            root = &((*root)->right);
+        else
+        {
+            puts("ignorato");
+            return;
+        }
+    }
+    *root = malloc(64);
+    strncpy((*root)->name, name, WORD_SIZE);
+    (*root)->ingredient_pointers = malloc(num_ingredients * 8);
+    (*root)->needed_quantities = malloc(num_ingredients * 4);
+    (*root)->num_ingredients = num_ingredients;
+    (*root)->weight = 0;
+    (*root)->left = NULL;
+    (*root)->right = NULL;
+    for (unsigned int i = 0; i < num_ingredients; i++)
+    {
+        (*root)->ingredient_pointers[i] = find_or_add_ingredient(&ingredients_total, ingredients[i]);
+        (*root)->needed_quantities[i] = quantities[i];
+        (*root)->weight += quantities[i];
+    }
+    puts("aggiunta");
+}
+
+// Time complexity: O(log n), space complexity: O(1)
+Recipe *find_recipe(Recipe *root, char *name)
+{
+    int cmp;
+    while (root != NULL)
+    {
+        cmp = strcmp(name, root->name);
+        if (cmp < 0)
+            root = root->left;
+        else if (cmp > 0)
+            root = root->right;
+        else
+            return root;
+    }
+    return NULL;
+}
+// Time complexity: Depends on the number of ingredients in the recipe, space complexity: O(n)
+void manage_aggiungi_ricetta(char *line)
+{
+    unsigned int max_ingredients = 15, *quantities = malloc(max_ingredients * 4), num_ingredients = 0, quantity;
+    char *token = strtok(line + strlen("aggiungi_ricetta") + 1, " "), *name = token, **ingredients = malloc(max_ingredients * 8), *ingredient_name;
+    while ((token = strtok(NULL, " ")) != NULL)
+    {
+        if (num_ingredients == max_ingredients)
+        {
+            max_ingredients++;
+            ingredients = realloc(ingredients, max_ingredients * 8);
+            quantities = realloc(quantities, max_ingredients * 4);
+        }
+        ingredient_name = token;
+        token = strtok(NULL, " ");
+        quantity = atoi(token);
+        ingredients[num_ingredients] = ingredient_name;
+        quantities[num_ingredients] = quantity;
+        num_ingredients++;
+    }
+    aggiungi_ricetta(&recipes, name, ingredients, quantities, num_ingredients);
+    free(ingredients);
+    free(quantities);
+}
+
 // Time complexity: O(n), space complexity: O(1). Function to remove expired batches from an ingredient
 void remove_spoiled_batches(Ingredient *ingredient)
 {
-    unsigned int write_index = 0;
-    unsigned int total_quantity_reduction = 0;
-    unsigned int i = 0;
+    unsigned int write_index = 0, total_quantity_reduction = 0, i = 0;
     // Scan batches until expiration_time exceeds time_elapsed
     for (; i < ingredient->num_batches; ++i)
     {
@@ -110,7 +187,6 @@ void remove_spoiled_batches(Ingredient *ingredient)
         }
         total_quantity_reduction += ingredient->batches[i].quantity;
     }
-
     // Adjust total_quantity for expired batches
     ingredient->total_quantity -= total_quantity_reduction;
     // Move non-expired batches and update write_index
@@ -121,139 +197,8 @@ void remove_spoiled_batches(Ingredient *ingredient)
     }
     // Update batches
     ingredient->num_batches = write_index;
-    ingredient->max_batches = ingredient->num_batches + 1;
-    ingredient->batches = realloc(ingredient->batches, ingredient->max_batches * 8);
-}
-
-// Time complexity: O(log n), space complexity: O(1)
-Ingredient *rifornimento(Ingredient *root, char *name, unsigned int quantity, unsigned int expiration_time)
-{
-    if (root == NULL)
-        return create_ingredient_from_supplying(name, quantity, expiration_time);
-    int cmp = strcmp(name, root->name);
-    if (cmp < 0)
-        root->left = rifornimento(root->left, name, quantity, expiration_time);
-    else if (cmp > 0)
-        root->right = rifornimento(root->right, name, quantity, expiration_time);
-    else if (quantity > 0 && expiration_time > time_elapsed)
-    {
-        // remove_spoiled_batches(root);
-        root->total_quantity += quantity;
-        unsigned int insert_index = find_insert_index_binary_batch(root->batches, root->num_batches, expiration_time);
-        if (root->num_batches == root->max_batches)
-        {
-            root->max_batches++;
-            root->batches = realloc(root->batches, root->max_batches * 8);
-        }
-        memmove(&root->batches[insert_index + 1], &root->batches[insert_index], (root->num_batches - insert_index) * 8);
-        root->batches[insert_index].quantity = quantity;
-        root->batches[insert_index].expiration_time = expiration_time;
-        root->num_batches++;
-    }
-    return root;
-}
-// Time complexity: Depends on the number of ingredients in the recipe, space complexity: O(n)
-Ingredient *find_or_add_ingredient(Ingredient **root_ptr, char *name)
-{
-    Ingredient *root = *root_ptr;
-    if (root == NULL)
-    {
-        // If root is NULL, create a new ingredient and assign it to root
-        Ingredient *new_ingredient = create_ingredient(name);
-        *root_ptr = new_ingredient; // Update root_ptr to point to the new ingredient
-        return new_ingredient;
-    }
-    int cmp = strcmp(name, root->name);
-    if (cmp < 0)
-        return find_or_add_ingredient(&(root->left), name);
-    else if (cmp > 0)
-        return find_or_add_ingredient(&(root->right), name);
-    else
-        return root;
-}
-
-// Time complexity: O(1), space complexity: O(n)
-Recipe *create_recipe(char *name, char **ingredients, unsigned int *quantities, unsigned int num_ingredients)
-{
-
-    Recipe *new_recipe = malloc(64);
-    strncpy(new_recipe->name, name, WORD_SIZE);
-    new_recipe->ingredient_pointers = malloc(num_ingredients * 8);
-    new_recipe->needed_quantities = malloc(num_ingredients * 4);
-    new_recipe->num_ingredients = num_ingredients;
-    new_recipe->weight = 0;
-    new_recipe->left = NULL;
-    new_recipe->right = NULL;
-    for (unsigned int i = 0; i < num_ingredients; i++)
-    {
-        new_recipe->ingredient_pointers[i] = find_or_add_ingredient(&ingredients_total, ingredients[i]);
-        new_recipe->needed_quantities[i] = quantities[i];
-        new_recipe->weight += quantities[i];
-    }
-    return new_recipe;
-}
-// Time complexity: O(log n), space complexity: O(n)
-bool aggiungi_ricetta(Recipe **root, char *name, char **ingredients, unsigned int *quantities, unsigned int num_ingredients)
-{
-    if (*root == NULL)
-    {
-        *root = create_recipe(name, ingredients, quantities, num_ingredients);
-        return 1;
-    }
-    int cmp = strcmp(name, (*root)->name);
-    if (cmp < 0)
-        return aggiungi_ricetta(&((*root)->left), name, ingredients, quantities, num_ingredients);
-    else if (cmp > 0)
-        return aggiungi_ricetta(&((*root)->right), name, ingredients, quantities, num_ingredients);
-    else
-    {
-        puts("ignorato");
-        return 0;
-    }
-}
-// Time complexity: O(log n), space complexity: O(1)
-Recipe *find_recipe(Recipe *root, char *name)
-{
-    if (root == NULL)
-        return NULL;
-    int cmp = strcmp(name, root->name);
-    if (cmp < 0)
-        return find_recipe(root->left, name);
-    else if (cmp > 0)
-        return find_recipe(root->right, name);
-    else
-        return root;
-}
-// Time complexity: Depends on the number of ingredients in the recipe, space complexity: O(n)
-void manage_aggiungi_ricetta(char *line)
-{
-    char *token = strtok(line + strlen("aggiungi_ricetta") + 1, " ");
-    char *name = token;
-    char **ingredients = NULL;
-    unsigned int *quantities = NULL;
-    unsigned int max_ingredients = 5;
-    unsigned int num_ingredients = 0;
-    ingredients = malloc(max_ingredients * 8);
-    quantities = malloc(max_ingredients * 4);
-    while ((token = strtok(NULL, " ")) != NULL)
-    {
-        if (num_ingredients == max_ingredients)
-        {
-            max_ingredients++;
-            ingredients = realloc(ingredients, max_ingredients * 8);
-            quantities = realloc(quantities, max_ingredients * 4);
-        }
-        char *ingredient_name = token;
-        token = strtok(NULL, " ");
-        unsigned int quantity = atoi(token);
-        ingredients[num_ingredients] = ingredient_name;
-        quantities[num_ingredients] = quantity;
-        num_ingredients++;
-    }
-    if (aggiungi_ricetta(&recipes, name, ingredients, quantities, num_ingredients))
-        puts("aggiunta");
-    free(ingredients);
-    free(quantities);
+    if (ingredient->max_batches > write_index + 1)
+        ingredient->batches = realloc(ingredient->batches, (ingredient->max_batches = write_index + 1) * 8);
 }
 // Time complexity: O(n), space complexity: O(1). Function to traverse the binary tree of ingredients and remove expired batches
 void remove_all_spoiled_batches_from_tree(Ingredient *root)
@@ -267,55 +212,89 @@ void remove_all_spoiled_batches_from_tree(Ingredient *root)
 // Time complexity: O(n), space complexity: O(1)
 bool can_fulfill_order_optimized(Recipe *recipe, unsigned int order_quantity)
 {
-    for (unsigned int i = 0; i < recipe->num_ingredients; i++)
+    // TODO: last resort => make this one single "for" loop and implement a rollback system for when you can't finish the order
+    unsigned int i = 0;
+    for (; i < recipe->num_ingredients; i++)
     {
         remove_spoiled_batches(recipe->ingredient_pointers[i]);
         if (recipe->ingredient_pointers[i]->total_quantity < recipe->needed_quantities[i] * order_quantity)
             return false;
     }
+    // Fulfill the order
+    unsigned int required_quantity, new_num_batches = 0, j;
+    Ingredient *ingredient;
+    Batch *batches;
+    for (i = 0; i < recipe->num_ingredients; i++, j = 1, new_num_batches = 0)
+    {
+        required_quantity = recipe->needed_quantities[i] * order_quantity;
+        ingredient = recipe->ingredient_pointers[i];
+        ingredient->total_quantity -= required_quantity; // Decrement the total quantity of the ingredient
+        batches = ingredient->batches;
+        if (required_quantity < batches[0].quantity)
+        {
+            batches[0].quantity -= required_quantity;
+            continue;
+        }
+        for (; j < ingredient->num_batches; j++)
+        {
+            if (required_quantity <= batches[j].quantity)
+            {
+                batches[j].quantity -= required_quantity;
+                batches[new_num_batches++] = batches[j++];
+                break;
+            }
+            required_quantity -= batches[j].quantity;
+        }
+        for (; j < ingredient->num_batches; j++)
+            batches[new_num_batches++] = batches[j];
+        // Update the number of batches and resize if necessary
+        ingredient->num_batches = new_num_batches;
+        ingredient->batches = realloc(ingredient->batches, (ingredient->max_batches = new_num_batches + 1) * 8);
+    }
     return true;
 }
+
 bool can_fulfill_order(Recipe *recipe, unsigned int order_quantity)
 {
     for (unsigned int i = 0; i < recipe->num_ingredients; i++)
-    {
         if (recipe->ingredient_pointers[i]->total_quantity < recipe->needed_quantities[i] * order_quantity)
             return false;
-    }
     return true;
 }
 // Time complexity: O(n + m), space complexity: O(1)
 void fulfill_order(Recipe *recipe, unsigned int order_quantity)
 {
-    for (unsigned int i = 0; i < recipe->num_ingredients; i++)
+    Ingredient *ingredient;
+    Batch *batches;
+    for (unsigned int i = 0, j = 0, new_num_batches = 0, required_quantity; i < recipe->num_ingredients; i++, j = 0, new_num_batches = 0)
     {
-        unsigned int required_quantity = recipe->needed_quantities[i] * order_quantity;
-        Ingredient *ingredient = recipe->ingredient_pointers[i];
-        // Decrement the total quantity of the ingredient
-        ingredient->total_quantity -= required_quantity;
-        // Iterate through batches and reduce the required quantity
-        unsigned int new_num_batches = 0;
-        for (unsigned int j = 0; j < ingredient->num_batches; j++)
-            if (ingredient->batches[j].quantity > required_quantity)
+        required_quantity = recipe->needed_quantities[i] * order_quantity;
+        ingredient = recipe->ingredient_pointers[i];
+        ingredient->total_quantity -= required_quantity; // Decrement the total quantity of the ingredient
+        batches = ingredient->batches;
+        if (required_quantity < batches[0].quantity)
+        {
+            batches[0].quantity -= required_quantity;
+            continue;
+        }
+        for (; j < ingredient->num_batches; j++)
+        {
+            if (required_quantity <= batches[j].quantity)
             {
-                ingredient->batches[j].quantity -= required_quantity;
-                required_quantity = 0;
-                ingredient->batches[new_num_batches++] = ingredient->batches[j];
+                batches[j].quantity -= required_quantity;
+                batches[new_num_batches++] = batches[j++];
+                break;
             }
-            else
-            {
-                required_quantity -= ingredient->batches[j].quantity;
-                ingredient->batches[j].quantity = 0;
-            }
+            required_quantity -= batches[j].quantity;
+        }
+        for (; j < ingredient->num_batches; j++)
+            batches[new_num_batches++] = batches[j];
         // Update the number of batches and resize if necessary
         ingredient->num_batches = new_num_batches;
-        if (ingredient->num_batches < ingredient->max_batches)
-        {
-            ingredient->max_batches = ingredient->num_batches;
-            ingredient->batches = realloc(ingredient->batches, ingredient->max_batches * 8);
-        }
+        ingredient->batches = realloc(ingredient->batches, (ingredient->max_batches = new_num_batches + 1) * 8);
     }
 }
+
 // Time complexity: O(n), space complexity: O(1).
 RecipeNode *find_insert_queue_position(RecipeNode *head, RecipeNode *new_node)
 {
@@ -345,8 +324,6 @@ void ordine(Recipe *recipe, unsigned int quantity)
     // Check if the recipe can be fulfilled
     if (can_fulfill_order_optimized(recipe, quantity))
     {
-        // Fulfill the order
-        fulfill_order(recipe, quantity);
         // Insert into completed_order_queue in the correct position
         RecipeNode *insert_pos = find_insert_queue_position(completed_order_queue.front, new_node);
         if (insert_pos == NULL)
@@ -368,15 +345,10 @@ void ordine(Recipe *recipe, unsigned int quantity)
     {
         // Add to order_queue if the recipe cannot be fulfilled
         if (order_queue.front == NULL)
-        {
             order_queue.front = new_node;
-            order_queue.rear = new_node;
-        }
         else
-        {
             order_queue.rear->next = new_node;
-            order_queue.rear = new_node;
-        }
+        order_queue.rear = new_node;
     }
 }
 // Time complexity: Depends on the length of the input line, space complexity: O(1). Function to manage orders
@@ -493,18 +465,64 @@ void free_queue(RecipeNode *root)
         free(temp);
     }
 }
+// Time complexity: O(log n), space complexity: O(1)
+unsigned int find_insert_index_binary_batch(Batch *batches, unsigned int num_batches, unsigned int expiration_time)
+{
+    unsigned int low = 0;
+    unsigned int high = num_batches;
+    while (low < high)
+    {
+        unsigned int mid = low + ((high - low) >> 1);
+        if (batches[mid].expiration_time < expiration_time)
+            low = mid + 1;
+        else
+            high = mid;
+    }
+    return low;
+}
+// Time complexity: O(log n), space complexity: O(1)
+Ingredient *rifornimento(Ingredient *root, char *name, unsigned int quantity, unsigned int expiration_time)
+{
+    if (root == NULL)
+        return create_ingredient_from_supplying(name, quantity, expiration_time);
+    int cmp = strcmp(name, root->name);
+    if (cmp < 0)
+        root->left = rifornimento(root->left, name, quantity, expiration_time);
+    else if (cmp > 0)
+        root->right = rifornimento(root->right, name, quantity, expiration_time);
+    else
+    {
+        //  remove_spoiled_batches(root);
+        root->total_quantity += quantity;
+        unsigned int insert_index = find_insert_index_binary_batch(root->batches, root->num_batches, expiration_time);
+        if (root->num_batches == root->max_batches)
+        {
+            root->max_batches++;
+            root->batches = realloc(root->batches, root->max_batches * 8);
+        }
+        memmove(&root->batches[insert_index + 1], &root->batches[insert_index], (root->num_batches - insert_index) * 8);
+        root->batches[insert_index].quantity = quantity;
+        root->batches[insert_index].expiration_time = expiration_time;
+        root->num_batches++;
+    }
+    return root;
+}
+
 // Time complexity: Depends on the length of the input line, space complexity: O(1). Function to manage restocking
 void manage_rifornimento(char *line)
 {
+    unsigned int quantity = 0, expiration_time = 0;
     char *token = strtok(line + strlen("rifornimento") + 1, " ");
     while (token != NULL)
     {
         char *ingredient_name = token;
         token = strtok(NULL, " ");
-        unsigned int quantity = atoi(token);
+        quantity = atoi(token);
         token = strtok(NULL, " ");
-        unsigned int expiration_time = atoi(token);
-        ingredients_total = rifornimento(ingredients_total, ingredient_name, quantity, expiration_time);
+        if (quantity > 0)
+            expiration_time = atoi(token);
+        if (expiration_time > time_elapsed)
+            ingredients_total = rifornimento(ingredients_total, ingredient_name, quantity, expiration_time);
         token = strtok(NULL, " ");
     }
     puts("rifornito");
@@ -600,7 +618,7 @@ void manage_courier(unsigned int courier_capacity)
             break;
         // Remove the node from completed_order_queue
         RecipeNode *next = current->next;
-        if (prev == NULL) // (prev == NULL) ? (completed_order_queue.front = next) : (prev->next = next);
+        if (prev == NULL) // TODO: (prev == NULL) ? (completed_order_queue.front = next) : (prev->next = next);
             completed_order_queue.front = next;
         else
             prev->next = next;
@@ -636,12 +654,13 @@ int main()
     unsigned short courier_frequency;
     unsigned int courier_capacity;
     __attribute__((unused)) bool result = scanf("%hu %u%*c", &courier_frequency, &courier_capacity);
-    register unsigned int current_character, remaining_time = courier_frequency;
+    register unsigned int current_character, max_size, current_index;
+    register unsigned short remaining_time = courier_frequency;
     while ((current_character = getchar_unlocked()) != EOF)
     {
-        unsigned int max_size = INITIAL_SIZE;
+        max_size = INITIAL_SIZE;
         char *line = malloc(INITIAL_SIZE);
-        unsigned int current_index = 0;
+        current_index = 0;
         while (current_character != '\n')
         {
             if (current_index == max_size - 1)
@@ -663,7 +682,7 @@ int main()
             manage_rimuovi_ricetta(line);
             break;
         case 'f':
-            remove_all_spoiled_batches_from_tree(ingredients_total);
+            remove_all_spoiled_batches_from_tree(ingredients_total); // TODO: last resort => create a new struct that contains only the batches ordered by expiration_time and change ingredients and batches struct
             manage_rifornimento(line);
             break;
         case 'd':
