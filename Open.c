@@ -140,7 +140,6 @@ void aggiungi_ricetta(Recipe **root, char *name, Ingredient **ingredients, unsig
         insert_sorted((*root)->ingredient_pointers, (*root)->needed_quantities, i, ingredients[i], quantities[i]);
         (*root)->weight += quantities[i];
     }
-
     puts("aggiunta");
 }
 // Time complexity = O(h), space complexity = O(1)
