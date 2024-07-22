@@ -94,23 +94,20 @@ Ingredient *find_or_add_ingredient(Ingredient **root, char *name)
 // Time complexity = O(n), space complexity = O(1)
 void insert_sorted(Ingredient **ingredients, unsigned int *quantities, unsigned int num_ingredients, Ingredient *ingredient, unsigned int quantity)
 {
-    int left = 0, right = num_ingredients - 1;
-
+    int left = 0, right = num_ingredients - 1, mid;
     while (left <= right)
     {
-        int mid = (left + right) / 2;
+        mid = (left + right) / 2;
         if (quantities[mid] < quantity)
             right = mid - 1;
         else
             left = mid + 1;
     }
-
     for (int i = num_ingredients - 1; i >= left; i--)
     {
         ingredients[i + 1] = ingredients[i];
         quantities[i + 1] = quantities[i];
     }
-
     ingredients[left] = ingredient;
     quantities[left] = quantity;
 }
@@ -138,7 +135,6 @@ void aggiungi_ricetta(Recipe **root, char *name, Ingredient **ingredients, unsig
     (*root)->weight = 0;
     (*root)->left = NULL;
     (*root)->right = NULL;
-
     for (unsigned int i = 0; i < num_ingredients; i++)
     {
         insert_sorted((*root)->ingredient_pointers, (*root)->needed_quantities, i, ingredients[i], quantities[i]);
@@ -506,7 +502,6 @@ bool can_fulfill_order(Recipe *recipe, unsigned int order_quantity)
 {
     Ingredient **ingredient_pointers = recipe->ingredient_pointers;
     register unsigned int num_ingredients = recipe->num_ingredients, *needed_quantities = recipe->needed_quantities;
-
     for (unsigned int i = 0; i < num_ingredients; i++)
         if ((unsigned)(ingredient_pointers[i]->total_quantity) < (unsigned)(needed_quantities[i] * order_quantity))
             return false;
@@ -580,7 +575,6 @@ RecipeNode *find_insert_queue_weight(RecipeNode *head, RecipeNode *new_node)
     unsigned int new_weight = new_node->recipe->weight * new_node->quantity;
     unsigned int new_arrival_time = new_node->arrival_time;
     RecipeNode *insert_position = NULL;
-
     while (head != NULL)
     {
         unsigned int current_weight = head->recipe->weight * head->quantity;
@@ -595,7 +589,6 @@ RecipeNode *find_insert_queue_weight(RecipeNode *head, RecipeNode *new_node)
             break;
         }
     }
-
     return insert_position;
 }
 // Time complexity = O(n * (m + log m)), space complexity = O(n)
