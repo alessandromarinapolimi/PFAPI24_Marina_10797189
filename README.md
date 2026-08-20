@@ -5,7 +5,7 @@ and optimized to run within strict time and memory limits.
 
 ![Compilation outcome](./compilation_outcome.JPG)
 
-- Course: Algorithms and Data Structures
+- Course: Algoritmi e Strutture Dati (Algorithms and Data Structures)
 - Academic year: 2023/2024
 - Language: C
 - Final grade: 30/30 cum laude
