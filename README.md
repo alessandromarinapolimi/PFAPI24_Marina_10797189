@@ -1,5 +1,8 @@
 # PFAPI24_Marina_10797189 - Industrial Bakery Simulator
 
+![language](https://img.shields.io/badge/language-C-A8B9CC?style=flat-square&logo=c&logoColor=white)
+![Politecnico di Milano](https://img.shields.io/badge/Politecnico%20di%20Milano-Algoritmi%20e%20Strutture%20Dati-lightgrey?style=flat-square)
+
 Discrete-time simulator of the inventory and order management of an industrial bakery, written in C
 and optimized to run within strict time and memory limits.
 
